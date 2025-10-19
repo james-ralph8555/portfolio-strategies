@@ -10,7 +10,7 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        pythonEnv = pkgs.python3.withPackages (ps: with ps; [
+        pythonEnv = pkgs.python313.withPackages (ps: with ps; [
           pandas
           yfinance
           numpy
