@@ -5,8 +5,8 @@ description: "TQQQ + PFIX rate hedge + gold + cash with regime-switching"
 # Assets
 assets:
   core: "TQQQ"
-  rate_hedge: "PFIX"  # Payer-swaption rate hedge
-  diversifier: "IAU"   # Gold
+  rate_hedge: "PFIX" # Payer-swaption rate hedge
+  diversifier: "IAU" # Gold
   cash: "SGOV"
 
 # Strategy Parameters
@@ -16,7 +16,7 @@ regime_switching:
     pfix_weight: 0.2
     gold_weight: 0.15
   negative_correlation_allocation:
-    tmf_weight: 0.15  # Allow some TMF when correlation < 0
+    tmf_weight: 0.15 # Allow some TMF when correlation < 0
     gold_weight: 0.1
 
 tqqq_overweight:

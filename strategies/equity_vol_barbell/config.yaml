@@ -5,8 +5,8 @@ description: "TQQQ + short vol premium + tail hedge + cash with drawdown trigger
 # Assets
 assets:
   core: "TQQQ"
-  short_vol: "SVOL"    # Short-VIX premium
-  tail_hedge: "TAIL"   # S&P put ladder
+  short_vol: "SVOL" # Short-VIX premium
+  tail_hedge: "TAIL" # S&P put ladder
   cash: "SGOV"
 
 # Strategy Parameters
@@ -17,9 +17,9 @@ barbell_allocation:
   cash_weight: 0.05
 
 drawdown_triggers:
-  volatility_spike_threshold: 2.0  # 2x normal volatility
-  max_drawdown_threshold: 0.15    # 15% drawdown
-  tqqq_scaling_factor: 0.5        # Reduce TQQQ by 50% when triggered
+  volatility_spike_threshold: 2.0 # 2x normal volatility
+  max_drawdown_threshold: 0.15 # 15% drawdown
+  tqqq_scaling_factor: 0.5 # Reduce TQQQ by 50% when triggered
 
 vol_sizing:
   svol_max_weight: 0.2

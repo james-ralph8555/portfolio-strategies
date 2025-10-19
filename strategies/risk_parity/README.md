@@ -7,17 +7,21 @@ The Risk Parity Strategy is a modern implementation of the legacy `riskparity.py
 ## Strategy Logic
 
 ### Core Concept
+
 Risk parity aims to equalize the risk contribution of each asset in the portfolio, rather than allocating equal capital. This means assets with lower volatility (like bonds) receive higher capital allocations, while higher volatility assets (like equities) receive lower allocations.
 
 ### Assets
+
 - **TQQQ**: ProShares UltraPro QQQ (3x leveraged NASDAQ-100)
 - **TMF**: Direxion Daily 20+ Year Treasury Bull 3X ETF (3x leveraged long-term Treasury)
 
 ### Risk Budget
+
 - **Equity (TQQQ)**: 75% of portfolio risk contribution
 - **Bonds (TMF)**: 25% of portfolio risk contribution
 
 ### Algorithm
+
 1. Calculate covariance matrix of asset returns over lookback period
 2. Optimize weights to achieve target risk contributions
 3. Apply risk management constraints (volatility targeting, leverage limits)
@@ -26,23 +30,27 @@ Risk parity aims to equalize the risk contribution of each asset in the portfoli
 ## Key Improvements over Legacy
 
 ### 1. Framework Integration
+
 - Implements the modern `Strategy` interface
 - Compatible with backtesting and portfolio management systems
 - Proper configuration management through YAML
 
 ### 2. Enhanced Risk Management
+
 - Volatility targeting to control overall portfolio risk
 - Maximum leverage constraints
 - Drawdown monitoring and control
 - Robust error handling and fallback mechanisms
 
 ### 3. Better Optimization
+
 - Improved constraints handling
 - Bounds checking for individual weights
 - Fallback to equal weights if optimization fails
 - More robust numerical methods
 
 ### 4. Monitoring & Metrics
+
 - Portfolio volatility tracking
 - Risk contribution analysis
 - Risk parity error measurement
@@ -51,12 +59,13 @@ Risk parity aims to equalize the risk contribution of each asset in the portfoli
 ## Configuration
 
 ### Risk Parity Parameters
+
 ```yaml
 risk_parity:
   risk_budget:
-    equity: 0.75    # 75% risk contribution from equity
-    bond: 0.25      # 25% risk contribution from bonds
-  lookback_period: 90  # Days for covariance calculation
+    equity: 0.75 # 75% risk contribution from equity
+    bond: 0.25 # 25% risk contribution from bonds
+  lookback_period: 90 # Days for covariance calculation
   optimization:
     tolerance: 1e-10
     method: "SLSQP"
@@ -65,25 +74,28 @@ risk_parity:
 ```
 
 ### Risk Management
+
 ```yaml
 risk_management:
   max_leverage: 3.0
-  volatility_target: 0.15  # 15% annualized volatility
+  volatility_target: 0.15 # 15% annualized volatility
   drawdown_control:
     enabled: true
     max_drawdown: 0.20
 ```
 
 ### Rebalancing
+
 ```yaml
 rebalancing:
   frequency: "monthly"
-  drift_bands: 5  # 5% drift triggers rebalance
+  drift_bands: 5 # 5% drift triggers rebalance
 ```
 
 ## Usage
 
 ### Basic Implementation
+
 ```python
 from strategies.risk_parity.strategy import RiskParityStrategy
 
@@ -107,6 +119,7 @@ weights = strategy.calculate_weights(market_data)
 ```
 
 ### Integration with Backtesting
+
 The strategy integrates seamlessly with the existing backtesting framework:
 
 ```python
@@ -125,12 +138,14 @@ strategy = RiskParityStrategy(strategy_config)
 ## Performance Characteristics
 
 ### Expected Behavior
+
 - **Risk Profile**: Moderate to high (due to 3x leverage)
 - **Return Profile**: Aims for equity-like returns with bond-like volatility
 - **Market Sensitivity**: Benefits from equity bull markets, bond rally periods
 - **Drawdown Protection**: Limited - risk parity doesn't provide crash protection
 
 ### Risk Factors
+
 - **Leverage Risk**: 3x leverage amplifies both gains and losses
 - **Correlation Risk**: Strategy assumes negative correlation between equities and bonds
 - **Volatility Risk**: High volatility periods can lead to frequent rebalancing
@@ -138,15 +153,15 @@ strategy = RiskParityStrategy(strategy_config)
 
 ## Comparison with Legacy
 
-| Feature | Legacy Script | Modern Implementation |
-|---------|---------------|----------------------|
-| Framework | Standalone script | Integrated strategy interface |
-| Configuration | Hardcoded parameters | YAML configuration |
-| Error Handling | Basic | Comprehensive with fallbacks |
-| Risk Management | None | Volatility targeting, leverage limits |
-| Monitoring | Print statements | Structured metrics and logging |
-| Testing | None | Unit and integration tests |
-| Documentation | Minimal | Comprehensive README |
+| Feature         | Legacy Script        | Modern Implementation                 |
+| --------------- | -------------------- | ------------------------------------- |
+| Framework       | Standalone script    | Integrated strategy interface         |
+| Configuration   | Hardcoded parameters | YAML configuration                    |
+| Error Handling  | Basic                | Comprehensive with fallbacks          |
+| Risk Management | None                 | Volatility targeting, leverage limits |
+| Monitoring      | Print statements     | Structured metrics and logging        |
+| Testing         | None                 | Unit and integration tests            |
+| Documentation   | Minimal              | Comprehensive README                  |
 
 ## Testing
 
@@ -157,6 +172,7 @@ The strategy includes comprehensive tests:
 - **Functional Tests**: End-to-end workflow testing
 
 Run tests with:
+
 ```bash
 python -m pytest tests/unit/test_risk_parity.py
 python -m pytest tests/functional/test_risk_parity_functional.py

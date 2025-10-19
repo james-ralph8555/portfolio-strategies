@@ -8,22 +8,22 @@ rebalance_frequency: "monthly"
 drift_bands: 10
 
 # Base allocation weights (should sum to 1.0)
-tqqq_base_weight: 0.60      # Core equity engine
-pfix_base_weight: 0.20      # Convex rate hedge
-gold_base_weight: 0.15      # Diversification, especially in stress
-cash_base_weight: 0.05      # Shock absorber
+tqqq_base_weight: 0.60 # Core equity engine
+pfix_base_weight: 0.20 # Convex rate hedge
+gold_base_weight: 0.15 # Diversification, especially in stress
+cash_base_weight: 0.05 # Shock absorber
 
 # Volatility targeting
-target_volatility: 0.15     # 15% annualized volatility target
-volatility_lookback: 60     # Days for volatility calculation
+target_volatility: 0.15 # 15% annualized volatility target
+volatility_lookback: 60 # Days for volatility calculation
 
 # Correlation regime switching
-correlation_threshold: 0.0  # Stock-bond correlation regime threshold
-correlation_lookback: 252   # Days for correlation calculation (1 year)
+correlation_threshold: 0.0 # Stock-bond correlation regime threshold
+correlation_lookback: 252 # Days for correlation calculation (1 year)
 
 # Risk management
-max_leverage: 2.0           # Maximum leverage factor
-min_cash_allocation: 0.05   # Minimum cash allocation
+max_leverage: 2.0 # Maximum leverage factor
+min_cash_allocation: 0.05 # Minimum cash allocation
 
 # Asset descriptions
 asset_descriptions:

@@ -14,15 +14,16 @@ The `Strategy` abstract base class defines the contract that all strategies must
 class Strategy(ABC):
     @abstractmethod
     def calculate_weights(self, data: pd.DataFrame) -> Dict[str, float]
-    
+
     @abstractmethod
     def should_rebalance(self, current_weights, target_weights) -> bool
-    
+
     @abstractmethod
     def validate_config(self) -> bool
 ```
 
 **Key Benefits:**
+
 - Ensures consistent API across all strategies
 - Enables polymorphic usage in backtesting framework
 - Provides clear implementation guidelines
@@ -38,6 +39,7 @@ strategy = registry.create_strategy("equity_crisis_alpha", config)
 ```
 
 **Features:**
+
 - Convention-based discovery (directory → class mapping)
 - Dynamic loading without import conflicts
 - Centralized strategy metadata management
@@ -52,6 +54,7 @@ config = config_manager.load_strategy_config("equity_crisis_alpha")
 ```
 
 **Capabilities:**
+
 - YAML-based configuration files
 - Environment variable overrides
 - Nested configuration support

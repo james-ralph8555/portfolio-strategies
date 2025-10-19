@@ -4,39 +4,39 @@ description: "Risk parity allocation between equity and bond leveraged ETFs"
 
 # Assets
 assets:
-  equity: "TQQQ"    # 3x leveraged NASDAQ-100
-  bond: "TMF"       # 3x leveraged long-term Treasury
-  unleveraged_equity: "QQQ"  # NASDAQ-100 (for comparison)
-  unleveraged_bond: "TLT"    # Long-term Treasury (for comparison)
+  equity: "TQQQ" # 3x leveraged NASDAQ-100
+  bond: "TMF" # 3x leveraged long-term Treasury
+  unleveraged_equity: "QQQ" # NASDAQ-100 (for comparison)
+  unleveraged_bond: "TLT" # Long-term Treasury (for comparison)
 
 # Strategy Parameters
 risk_parity:
   risk_budget:
-    equity: 0.75    # 75% risk contribution from equity
-    bond: 0.25      # 25% risk contribution from bonds
-  
-  lookback_period: 90  # Days for covariance calculation
+    equity: 0.75 # 75% risk contribution from equity
+    bond: 0.25 # 25% risk contribution from bonds
+
+  lookback_period: 90 # Days for covariance calculation
   rebalance_frequency: "monthly"
-  
+
   optimization:
     tolerance: 1e-10
     method: "SLSQP"
-    min_weight: 0.01    # Minimum 1% weight per asset
-    max_weight: 0.99    # Maximum 99% weight per asset
+    min_weight: 0.01 # Minimum 1% weight per asset
+    max_weight: 0.99 # Maximum 99% weight per asset
 
 # Risk Management
 risk_management:
-  max_leverage: 3.0     # Maximum leverage ratio
-  volatility_target: 0.15  # Annualized volatility target
+  max_leverage: 3.0 # Maximum leverage ratio
+  volatility_target: 0.15 # Annualized volatility target
   drawdown_control:
     enabled: true
-    max_drawdown: 0.20  # 20% maximum drawdown
-    rebalance_threshold: 0.05  # 5% drift triggers rebalance
+    max_drawdown: 0.20 # 20% maximum drawdown
+    rebalance_threshold: 0.05 # 5% drift triggers rebalance
 
 # Data Requirements
 data:
   price_source: "yahoo_finance"
-  required_history: 252  # Trading days for robust statistics
+  required_history: 252 # Trading days for robust statistics
   update_frequency: "daily"
 
 rebalancing:

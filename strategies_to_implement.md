@@ -1,4 +1,3 @@
-
 Yes. Use a TQQQ-centric core, then add uncorrelated sleeves with rules that bias expected return and control left-tail risk. Four ETF-only blueprints and the algorithm I’d use for each:
 
 1. **Equity engine + crisis alpha**
@@ -19,9 +18,9 @@ Yes. Use a TQQQ-centric core, then add uncorrelated sleeves with rules that bias
 
 # Implementation notes
 
-* **Targeting**: set a portfolio vol cap (e.g., 12–18% annualized). Volatility targeting is robust across factors and asset classes. ([Wiley Online Library][6])
-* **Rebalance**: monthly with 10-pt drift bands; add a **correlation-regime guard** for bond/rate hedges. Positive stock–bond correlation argues for more gold/managed futures and less linear duration. ([AQR Capital Management][7])
-* **Cash**: treat SGOV as the shock absorber, not return engine. ([ishares.com][8])
+- **Targeting**: set a portfolio vol cap (e.g., 12–18% annualized). Volatility targeting is robust across factors and asset classes. ([Wiley Online Library][6])
+- **Rebalance**: monthly with 10-pt drift bands; add a **correlation-regime guard** for bond/rate hedges. Positive stock–bond correlation argues for more gold/managed futures and less linear duration. ([AQR Capital Management][7])
+- **Cash**: treat SGOV as the shock absorber, not return engine. ([ishares.com][8])
 
 Pick one blueprint and I’ll translate it into precise weights, bands, and triggers aligned to your risk target.
 
@@ -34,7 +33,7 @@ Pick one blueprint and I’ll translate it into precise weights, bands, and trig
 [7]: https://www.aqr.com/-/media/AQR/Documents/Alternative-Thinking/A-Changing-Stock-Bond-Correlation_JPM.pdf?sc_lang=en&utm_source=chatgpt.com "A Changing Stock–Bond Correlation"
 [8]: https://www.ishares.com/us/products/314116/ishares-0-3-month-treasury-bond-etf?utm_source=chatgpt.com "iShares 0-3 Month Treasury Bond ETF | SGOV"
 
-Note: risk_parity in this repo is an old strategy, these above are newer strategies we want to implement 
+Note: risk_parity in this repo is an old strategy, these above are newer strategies we want to implement
 
 Implementation can include expanding python packages in this repo.
 This code is very old and risk_parity.py should not be used as a template, quality of life features should be added.

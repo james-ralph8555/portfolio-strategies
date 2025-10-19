@@ -5,20 +5,20 @@ description: "TQQQ + commodities + gold + cash with trend/carry signals"
 # Assets
 assets:
   core: "TQQQ"
-  commodities: "PDBC"  # Broad commodities (no K-1)
+  commodities: "PDBC" # Broad commodities (no K-1)
   gold: "IAU"
   cash: "SGOV"
 
 # Strategy Parameters
 signals:
   trend:
-    lookback_periods: [20, 60, 120]  # Multiple timeframes
+    lookback_periods: [20, 60, 120] # Multiple timeframes
     weight: 0.6
   carry:
     weight: 0.4
-  
+
 risk_parity:
-  commodities_gold_ratio: 0.5  # Equal risk between PDBC and IAU
+  commodities_gold_ratio: 0.5 # Equal risk between PDBC and IAU
   lookback_period: 60
 
 tqqq_overweight:

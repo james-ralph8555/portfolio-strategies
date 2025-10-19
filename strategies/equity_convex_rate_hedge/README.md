@@ -18,6 +18,7 @@ The Equity Convex Rate Hedge strategy combines a TQQQ-centric equity engine with
 The strategy uses a regime-switch approach for the bond/rate sleeve:
 
 1. **Positive Stock-Bond Correlation Regime** (correlation > 0):
+
    - Increase PFIX weight (primary hedge)
    - Reduce gold allocation slightly
    - Maintain TQQQ overweight

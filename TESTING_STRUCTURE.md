@@ -60,14 +60,18 @@ strategies/
 ## Test File Types
 
 ### 1. `conftest.py`
+
 Contains strategy-specific fixtures and configuration:
+
 - Strategy configuration fixtures
 - Sample data fixtures
 - Strategy instance fixtures
 - Minimal configuration fixtures
 
 ### 2. `test_unit.py`
+
 Contains unit tests for individual methods and components:
+
 - Strategy initialization tests
 - Configuration validation tests
 - Individual method tests
@@ -75,7 +79,9 @@ Contains unit tests for individual methods and components:
 - Data preprocessing/postprocessing tests
 
 ### 3. `test_functional.py`
+
 Contains end-to-end workflow and integration tests:
+
 - Complete workflow tests
 - Market scenario tests (normal, stress, crisis)
 - Rebalancing workflow tests
@@ -85,45 +91,47 @@ Contains end-to-end workflow and integration tests:
 ## Standardized Test Patterns
 
 ### Unit Test Structure
+
 ```python
 class TestStrategyName:
     def test_initialization_with_config(self, config_fixture):
         # Test strategy initialization with configuration
-        
+
     def test_initialization_without_config(self):
         # Test strategy initialization without configuration
-        
+
     def test_get_assets(self, strategy_fixture):
         # Test get_assets method
-        
+
     def test_get_name(self, strategy_fixture):
         # Test get_name method
-        
+
     def test_validate_config_valid(self, strategy_fixture):
         # Test config validation with valid config
-        
+
     def test_calculate_weights_basic(self, strategy_fixture, data_fixture):
         # Test basic weight calculation
-        
+
     def test_should_rebalance_within_bands(self, strategy_fixture):
         # Test rebalancing logic when within drift bands
 ```
 
 ### Functional Test Structure
+
 ```python
 class TestStrategyNameFunctional:
     def test_full_workflow_normal_market(self, strategy_fixture, data_fixture):
         # Test complete workflow in normal market conditions
-        
+
     def test_workflow_with_market_stress(self, strategy_fixture):
         # Test workflow during market stress conditions
-        
+
     def test_rebalancing_workflow(self, strategy_fixture):
         # Test complete rebalancing workflow
-        
+
     def test_config_updates_workflow(self, strategy_fixture):
         # Test workflow when configuration is updated
-        
+
     def test_error_handling_workflow(self, strategy_fixture):
         # Test workflow with various error conditions
 ```
@@ -131,6 +139,7 @@ class TestStrategyNameFunctional:
 ## Pytest Configuration
 
 The main `pytest.ini` file includes:
+
 - Test paths for both central tests and strategy-specific tests
 - Standard markers for test categorization
 - Consistent output formatting
@@ -139,26 +148,31 @@ The main `pytest.ini` file includes:
 ## Running Tests
 
 ### Run All Tests
+
 ```bash
 pytest
 ```
 
 ### Run Specific Strategy Tests
+
 ```bash
 pytest strategies/equity_vol_barbell/tests/
 ```
 
 ### Run Only Unit Tests
+
 ```bash
 pytest -m unit
 ```
 
 ### Run Only Functional Tests
+
 ```bash
 pytest -m functional
 ```
 
 ### Run Tests with Verbose Output
+
 ```bash
 pytest -v
 ```

@@ -14,21 +14,25 @@ This repository provides a modular architecture for implementing trading strateg
 ## Available Strategies
 
 ### 1. Equity Crisis Alpha
+
 - **Assets**: TQQQ + DBMF/KMLM (managed futures) + Gold + Cash
 - **Algorithm**: Leverage-aware ERC with Black-Litterman tilt
 - **Focus**: Crisis protection through managed futures
 
 ### 2. Equity Convex Rate Hedge
+
 - **Assets**: TQQQ + PFIX (rate hedge) + Gold + Cash
 - **Algorithm**: Regime-switch risk budget
 - **Focus**: Protection against rising interest rates
 
 ### 3. Equity Inflation Beta
+
 - **Assets**: TQQQ + PDBC (commodities) + Gold + Cash
 - **Algorithm**: Two-signal tilt (trend + carry)
 - **Focus**: Inflation protection through commodities
 
 ### 4. Equity Volatility Barbell
+
 - **Assets**: TQQQ + SVOL (short vol) + TAIL (tail hedge) + Cash
 - **Algorithm**: Barbell allocator with drawdown triggers
 - **Focus**: Volatility premium harvesting with tail protection
@@ -53,6 +57,7 @@ portfolio/
 ## Quick Start
 
 ### Prerequisites
+
 ```bash
 # Enter the Nix shell
 nix develop
@@ -81,6 +86,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on implementing n
 ## Development
 
 ### Running Tests
+
 ```bash
 # Run all tests
 python -m pytest tests/
@@ -92,11 +98,13 @@ python -m pytest tests/test_strategy.py
 ## Configuration
 
 Strategies use YAML configuration files with support for:
+
 - Environment variable overrides
 - Nested configuration
 - Automatic validation
 
 Example environment override:
+
 ```bash
 export EQUITY_CRISIS_ALPHA_VOLATILITY_TARGET=0.12
 ```

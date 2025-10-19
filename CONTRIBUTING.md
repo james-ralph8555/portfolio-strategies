@@ -41,15 +41,15 @@ class YourStrategyNameStrategy(Strategy):
         super().__init__(config)
         self.name = "your_strategy_name"
         self.assets = ["TQQQ", "OTHER_ASSETS"]
-        
+
     def calculate_weights(self, data: pd.DataFrame) -> Dict[str, float]:
         # Implement your strategy logic here
         return {}
-        
+
     def should_rebalance(self, current_weights, target_weights) -> bool:
         # Implement rebalancing logic
         return False
-        
+
     def validate_config(self) -> bool:
         # Validate configuration
         return True
@@ -75,6 +75,7 @@ parameters:
 ### 4. Add Documentation
 
 Create `strategies/your_strategy_name/README.md` with:
+
 - Strategy overview
 - Asset allocation
 - Algorithm description
@@ -84,24 +85,28 @@ Create `strategies/your_strategy_name/README.md` with:
 ## Development Guidelines
 
 ### Code Standards
+
 - Follow PEP 8 style guidelines
 - Add type hints for all functions
 - Include docstrings for all public methods
 - Write unit tests for all functionality
 
 ### Testing
+
 - Place tests in `tests/` directory
 - Use descriptive test names
 - Test edge cases and error conditions
 - Mock external dependencies
 
 ### Configuration
+
 - Use YAML configuration files
 - Support environment variable overrides
 - Validate all configuration parameters
 - Provide sensible defaults
 
 ### Naming Conventions
+
 - Strategy directories: `snake_case`
 - Strategy classes: `PascalCase` ending with `Strategy`
 - Configuration keys: `snake_case`
@@ -118,6 +123,7 @@ Create `strategies/your_strategy_name/README.md` with:
 ## Strategy Registry
 
 Strategies are automatically discovered by the registry system. Your strategy will be available once:
+
 - The strategy directory exists
 - `strategy.py` contains a class named `{StrategyName}Strategy`
 - The class implements the `Strategy` interface
@@ -125,6 +131,7 @@ Strategies are automatically discovered by the registry system. Your strategy wi
 ## Common Interface
 
 All strategies must implement these methods:
+
 - `calculate_weights(data)`: Calculate target asset weights
 - `should_rebalance(current, target)`: Determine if rebalancing needed
 - `validate_config()`: Validate strategy configuration
@@ -132,6 +139,7 @@ All strategies must implement these methods:
 ## Configuration Management
 
 The configuration system supports:
+
 - YAML configuration files
 - Environment variable overrides (prefix with `STRATEGY_NAME_`)
 - Nested configuration with dot notation

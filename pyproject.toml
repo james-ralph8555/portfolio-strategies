@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "portfolio-strategies"
-description = "Portfolio management strategies with equity convex rate hedge"
+description = "Portfolio management Strategies"
 readme = "README.md"
 requires-python = ">=3.13"
 license = {text = "MIT"}
@@ -37,7 +37,6 @@ test = [
 ]
 dev = [
     "ruff>=0.1.0",
-    "mypy>=0.991",
     "pre-commit>=2.20.0",
 ]
 
@@ -95,7 +94,7 @@ extend-exclude = [
     ".eggs",
     ".git",
     ".hg",
-    ".mypy_cache",
+
     ".tox",
     ".venv",
     "build",
@@ -121,27 +120,3 @@ ignore = [
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
-
-[tool.mypy]
-python_version = "3.13"
-explicit_package_bases = true
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-
-[[tool.mypy.overrides]]
-module = [
-    "pandas.*",
-    "numpy.*",
-    "yaml.*",
-]
-ignore_missing_imports = true
