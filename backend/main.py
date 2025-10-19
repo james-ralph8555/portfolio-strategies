@@ -145,6 +145,10 @@ async def get_strategies():
     strategies = []
     for name, strategy in backtester.strategies.items():
         try:
+            if strategy is None:
+                # Skip strategies that failed to load
+                continue
+
             assets = strategy.get_assets()
             config = getattr(strategy, "config", {})
             description = config.get("description", f"{name} strategy")

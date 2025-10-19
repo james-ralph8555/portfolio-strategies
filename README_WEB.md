@@ -217,7 +217,3 @@ npm run preview
 3. Update API documentation
 4. Test with sample data
 5. Update this README if needed
-
-## License
-
-MIT License - see LICENSE file for details

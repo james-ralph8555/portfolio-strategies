@@ -77,7 +77,10 @@ class RiskParityStrategy(Strategy):
 
         # Calculate returns using the lookback period
         returns_data = (
-            data[required_assets].iloc[-self.lookback_period :].pct_change().dropna()
+            data[required_assets]
+            .iloc[-self.lookback_period :]
+            .pct_change(fill_method=None)
+            .dropna()
         )
 
         if len(returns_data) < 10:  # Need minimum data for robust covariance

@@ -246,7 +246,3 @@ logging.getLogger('core.market_data').setLevel(logging.DEBUG)
 - `numpy>=1.21.0` - Numerical operations
 - `yfinance>=0.2.0` - Market data source
 - `duckdb>=0.9.0` - Caching database
-
-## License
-
-This module is part of the portfolio strategies project and is licensed under the MIT License.

@@ -330,3 +330,70 @@ def low_volatility_data():
         },
         index=dates,
     )
+
+
+# Fixtures for EquityConvexRateHedgeStrategy tests
+@pytest.fixture
+def custom_strategy_config() -> dict[str, Any]:
+    """Custom configuration for equity convex rate hedge strategy."""
+    return {
+        "target_volatility": 0.12,
+        "tqqq_base_weight": 0.55,
+        "pfix_base_weight": 0.25,
+        "gold_base_weight": 0.15,
+        "cash_base_weight": 0.05,
+        "correlation_threshold": 0.0,
+        "volatility_lookback": 60,
+        "correlation_lookback": 252,
+        "drift_bands": 5,
+    }
+
+
+@pytest.fixture
+def sample_market_data() -> pd.DataFrame:
+    """Sample market data for equity convex rate hedge strategy testing."""
+    np.random.seed(42)
+    dates = pd.date_range("2023-01-01", periods=300, freq="D")
+
+    return pd.DataFrame(
+        {
+            "TQQQ": np.cumprod(1 + np.random.normal(0.001, 0.03, 300)),
+            "PFIX": np.cumprod(1 + np.random.normal(0.0003, 0.01, 300)),
+            "IAU": np.cumprod(1 + np.random.normal(0.0005, 0.015, 300)),
+            "SGOV": np.cumprod(1 + np.random.normal(0.0002, 0.002, 300)),
+        },
+        index=dates,
+    )
+
+
+@pytest.fixture
+def minimal_data() -> pd.DataFrame:
+    """Minimal market data for testing edge cases."""
+    np.random.seed(42)
+    dates = pd.date_range("2023-01-01", periods=50, freq="D")
+
+    return pd.DataFrame(
+        {
+            "TQQQ": np.cumprod(1 + np.random.normal(0.001, 0.02, 50)),
+            "PFIX": np.cumprod(1 + np.random.normal(0.0003, 0.008, 50)),
+            "IAU": np.cumprod(1 + np.random.normal(0.0005, 0.01, 50)),
+            "SGOV": np.cumprod(1 + np.random.normal(0.0002, 0.001, 50)),
+        },
+        index=dates,
+    )
+
+
+@pytest.fixture
+def strategy_config() -> dict[str, Any]:
+    """Complete strategy configuration for testing."""
+    return {
+        "target_volatility": 0.15,
+        "tqqq_base_weight": 0.60,
+        "pfix_base_weight": 0.20,
+        "gold_base_weight": 0.15,
+        "cash_base_weight": 0.05,
+        "correlation_threshold": 0.0,
+        "volatility_lookback": 60,
+        "correlation_lookback": 252,
+        "drift_bands": 10,
+    }

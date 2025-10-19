@@ -47,7 +47,7 @@ class EquityCrisisAlphaStrategy(Strategy):
             Dictionary of target weights for each asset
         """
         # Extract returns data
-        returns = data.pct_change().dropna()
+        returns = data.pct_change(fill_method=None).dropna()
 
         # Calculate covariance matrix
         cov_matrix = returns.cov() * 252  # Annualized

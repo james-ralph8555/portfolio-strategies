@@ -47,8 +47,12 @@ class UnifiedBacktester:
         self.results_conn = duckdb.connect(self.results_db_path)
         self._initialize_results_db()
 
-        # Initialize market data manager
-        self.market_data_manager = MarketDataManager()
+        # Initialize market data manager (with error handling)
+        try:
+            self.market_data_manager = MarketDataManager()
+        except Exception as e:
+            self.logger.warning(f"Could not initialize market data manager: {e}")
+            self.market_data_manager = None
 
         # Load all strategies
         self.strategies = self._load_all_strategies()
@@ -127,7 +131,14 @@ class UnifiedBacktester:
     def _load_all_strategies(self) -> dict[str, Any]:
         """Load all available strategies from the strategies directory."""
         strategies = {}
+        # Try to find strategies directory from current location or project root
         strategies_dir = Path("strategies")
+        if not strategies_dir.exists():
+            # Try from the project root (assuming we're in backend/)
+            strategies_dir = Path(__file__).parent / "strategies"
+        if not strategies_dir.exists():
+            # Try one level up from backend
+            strategies_dir = Path(__file__).parent.parent / "strategies"
 
         if not strategies_dir.exists():
             self.logger.error(f"Strategies directory {strategies_dir} not found")
@@ -162,9 +173,16 @@ class UnifiedBacktester:
                             break
 
                     if strategy_class:
-                        strategy_instance = strategy_class(config)
-                        strategies[strategy_name] = strategy_instance
-                        self.logger.info(f"Loaded strategy: {strategy_name}")
+                        try:
+                            strategy_instance = strategy_class(config)
+                            strategies[strategy_name] = strategy_instance
+                            self.logger.info(f"Loaded strategy: {strategy_name}")
+                        except Exception as e:
+                            self.logger.warning(
+                                f"Failed to instantiate {strategy_name}: {e}"
+                            )
+                            # Still add the strategy class but note the error
+                            strategies[strategy_name] = None
                     else:
                         self.logger.warning(
                             f"No strategy class found in {strategy_name}"

@@ -7,8 +7,10 @@ Algorithm: Regime-switch risk budget with TQQQ overweight and vol targeting
 
 import pandas as pd
 
+from core.interfaces.strategy import Strategy
 
-class EquityConvexRateStrategy:
+
+class EquityConvexRateStrategy(Strategy):
     """
     TQQQ strategy with convex rate hedge via PFIX.
 
@@ -23,11 +25,11 @@ class EquityConvexRateStrategy:
         Args:
             config: Strategy-specific configuration dictionary
         """
+        super().__init__(config)
         self.name = "equity_convex_rate"
         self.assets = ["TQQQ", "PFIX", "IAU", "SGOV"]
         self.rebalance_frequency = "monthly"
         self.drift_bands = 10
-        self.config = config or {}
 
     def calculate_weights(self, data: pd.DataFrame) -> dict[str, float]:
         """
