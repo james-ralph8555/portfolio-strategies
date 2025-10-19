@@ -51,6 +51,12 @@ tests/
 
 ## Running Tests
 
+### Prerequisites
+Ensure you're in the Nix development environment:
+```bash
+nix develop
+```
+
 ### Run All Tests
 ```bash
 nix develop --command python -m pytest tests/ -v
