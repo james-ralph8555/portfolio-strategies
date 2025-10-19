@@ -15,6 +15,7 @@
           yfinance
           numpy
           scipy
+          pytest
         ]);
       in
       {

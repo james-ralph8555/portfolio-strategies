@@ -17,11 +17,18 @@ TQQQ strategy with volatility premium harvesting and tail protection.
 5. **Monthly rebalancing** with daily drawdown monitoring
 
 ## Implementation Status
-- [ ] Barbell allocation logic
-- [ ] Drawdown trigger calculation
-- [ ] VIX term structure analysis
-- [ ] Sleeve sizing methodology
-- [ ] Rebalancing logic
+- [x] Barbell allocation logic
+- [x] Drawdown trigger calculation
+- [x] VIX term structure analysis
+- [x] Sleeve sizing methodology
+- [x] Rebalancing logic
+
+## Key Features
+- **Dynamic TQQQ Scaling**: Automatically reduces TQQQ exposure by 50% when drawdown exceeds 15% or volatility spikes 2x normal levels
+- **VIX-Responsive SVOL Sizing**: Reduces short-vol exposure when VIX is elevated (unfavorable contango)
+- **Stress-Responsive TAIL Sizing**: Increases tail hedge when VIX is in upper quartile of historical range
+- **Drift Band Rebalancing**: Rebalances when any asset deviates more than 10% from target weight
+- **Configuration Validation**: Ensures all weights sum to 100% and are within valid ranges
 
 ## References
 - [Simplify SVOL ETF](https://www.simplify.us/etfs/svol-simplify-volatility-premium-etf)
