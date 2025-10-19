@@ -1,0 +1,314 @@
+"""
+Data Cache Module
+
+Provides DuckDB-based caching for market data to improve performance
+and reduce API calls to external data sources.
+"""
+
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import duckdb
+import pandas as pd
+
+
+class DataCache:
+    """
+    DuckDB-based cache for market data with automatic expiration.
+
+    Provides efficient storage and retrieval of market data with
+    configurable cache duration and automatic cleanup.
+    """
+
+    def __init__(self, cache_path: str | None = None, cache_duration_days: int = 1):
+        """
+        Initialize the data cache.
+
+        Args:
+            cache_path: Path to DuckDB database file
+            cache_duration_days: Number of days to cache data before refresh
+        """
+        if cache_path is None:
+            cache_dir = Path.home() / ".portfolio_cache"
+            cache_dir.mkdir(exist_ok=True)
+            cache_path = str(cache_dir / "market_data.duckdb")
+
+        self.cache_path = cache_path
+        self.cache_duration = timedelta(days=cache_duration_days)
+        self.conn = duckdb.connect(self.cache_path)
+        self._initialize_cache()
+
+    def _initialize_cache(self) -> None:
+        """Initialize the cache database and create tables if needed."""
+        self.conn = duckdb.connect(self.cache_path)
+
+        # Create tables for different data types
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS price_data (
+                symbol VARCHAR,
+                date DATE,
+                open FLOAT,
+                high FLOAT,
+                low FLOAT,
+                close FLOAT,
+                volume BIGINT,
+                adjusted_close FLOAT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (symbol, date)
+            )
+        """)
+
+        # Drop and recreate metadata table to ensure correct structure
+        self.conn.execute("DROP TABLE IF EXISTS metadata")
+        self.conn.execute("""
+            CREATE TABLE metadata (
+                symbol VARCHAR PRIMARY KEY,
+                name VARCHAR,
+                sector VARCHAR,
+                industry VARCHAR,
+                market_cap BIGINT,
+                currency VARCHAR,
+                exchange VARCHAR,
+                country VARCHAR,
+                timezone VARCHAR
+            )
+        """)
+
+        # Create indexes for better performance
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_price_symbol_date ON price_data(symbol, date)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_price_created_at ON price_data(created_at)"
+        )
+
+    def get_price_data(
+        self, symbols: list[str], start_date: str, end_date: str
+    ) -> pd.DataFrame:
+        """
+        Retrieve price data from cache.
+
+        Args:
+            symbols: List of ticker symbols
+            start_date: Start date in YYYY-MM-DD format
+            end_date: End date in YYYY-MM-DD format
+
+        Returns:
+            DataFrame with price data, empty if not found or expired
+        """
+        if not self._is_cache_valid(symbols, start_date, end_date):
+            return pd.DataFrame()
+
+        placeholders = ",".join(["?" for _ in symbols])
+        query = f"""
+            SELECT symbol, date, open, high, low, close, volume, adjusted_close
+            FROM price_data
+            WHERE symbol IN ({placeholders})
+            AND date BETWEEN ? AND ?
+            ORDER BY symbol, date
+        """
+
+        try:
+            result = self.conn.execute(
+                query, symbols + [start_date, end_date]
+            ).fetchdf()
+
+            if not result.empty:
+                # Pivot to have symbols as columns
+                pivot_data = result.pivot(
+                    index="date", columns="symbol", values="adjusted_close"
+                )
+                return pivot_data.sort_index()
+
+        except Exception as e:
+            print(f"Error retrieving cached data: {e}")
+
+        return pd.DataFrame()
+
+    def store_price_data(self, data: pd.DataFrame, symbols: list[str]) -> None:
+        """
+        Store price data in cache.
+
+        Args:
+            data: DataFrame with price data (indexed by date, columns are symbols)
+            symbols: List of ticker symbols
+        """
+        if data.empty:
+            return
+
+        # Convert to long format for storage
+        long_data = []
+        for symbol in symbols:
+            if symbol in data.columns:
+                symbol_data = data[symbol].dropna()
+                for date, price in symbol_data.items():
+                    long_data.append(
+                        {
+                            "symbol": symbol,
+                            "date": date,
+                            "open": price,  # Placeholder values
+                            "high": price,
+                            "low": price,
+                            "close": price,  # Using adjusted_close as close for simplicity
+                            "volume": 0,
+                            "adjusted_close": price,
+                            "created_at": datetime.now(),
+                        }
+                    )
+
+        if long_data:
+            df_to_store = pd.DataFrame(long_data)
+
+            # Remove existing data for these symbols and date range
+            min_date = df_to_store["date"].min()
+            max_date = df_to_store["date"].max()
+            placeholders = ",".join(["?" for _ in symbols])
+
+            self.conn.execute(
+                f"""
+                DELETE FROM price_data
+                WHERE symbol IN ({placeholders})
+                AND date BETWEEN ? AND ?
+            """,
+                symbols + [min_date, max_date],
+            )
+
+            # Insert new data
+            self.conn.execute(
+                "INSERT OR REPLACE INTO price_data SELECT * FROM df_to_store"
+            )
+
+    def get_metadata(self, symbol: str) -> dict[str, Any]:
+        """
+        Retrieve metadata for a symbol.
+
+        Args:
+            symbol: Ticker symbol
+
+        Returns:
+            Dictionary with metadata, empty if not found
+        """
+        try:
+            result = self.conn.execute(
+                "SELECT * FROM metadata WHERE symbol = ?", [symbol]
+            ).fetchdf()
+
+            if not result.empty:
+                return result.iloc[0].to_dict()
+        except Exception as e:
+            print(f"Error retrieving metadata: {e}")
+
+        return {}
+
+    def store_metadata(self, symbol: str, metadata: dict[str, Any]) -> None:
+        """
+        Store metadata for a symbol.
+
+        Args:
+            symbol: Ticker symbol
+            metadata: Dictionary with metadata
+        """
+        # Only store the columns that exist in the table
+
+        # Filter metadata to only include valid columns
+        filtered_metadata = {
+            "symbol": symbol,
+            "name": metadata.get("name", ""),
+            "sector": metadata.get("sector", ""),
+            "industry": metadata.get("industry", ""),
+            "market_cap": metadata.get("market_cap", 0),
+            "currency": metadata.get("currency", "USD"),
+            "exchange": metadata.get("exchange", ""),
+            "country": metadata.get("country", ""),
+            "timezone": metadata.get("timezone", ""),
+        }
+
+        try:
+            pd.DataFrame([filtered_metadata])
+            self.conn.execute(
+                "INSERT OR REPLACE INTO metadata SELECT * FROM df_metadata"
+            )
+        except Exception as e:
+            print(f"Error storing metadata: {e}")
+
+    def _is_cache_valid(
+        self, symbols: list[str], start_date: str, end_date: str
+    ) -> bool:
+        """
+        Check if cached data is still valid (not expired).
+
+        Args:
+            symbols: List of ticker symbols
+            start_date: Start date in YYYY-MM-DD format
+            end_date: End date in YYYY-MM-DD format
+
+        Returns:
+            True if cache is valid, False otherwise
+        """
+        try:
+            placeholders = ",".join(["?" for _ in symbols])
+            result = self.conn.execute(
+                f"""
+                SELECT MAX(created_at) as max_created_at
+                FROM price_data
+                WHERE symbol IN ({placeholders})
+                AND date BETWEEN ? AND ?
+            """,
+                symbols + [start_date, end_date],
+            ).fetchone()
+
+            if result and result[0]:
+                max_created = pd.to_datetime(result[0])
+                return datetime.now() - max_created < self.cache_duration
+
+        except Exception as e:
+            print(f"Error checking cache validity: {e}")
+
+        return False
+
+    def clear_cache(self, symbols: list[str] | None = None) -> None:
+        """
+        Clear cached data.
+
+        Args:
+            symbols: List of symbols to clear, if None clears all
+        """
+        try:
+            if symbols:
+                placeholders = ",".join(["?" for _ in symbols])
+                self.conn.execute(
+                    f"DELETE FROM price_data WHERE symbol IN ({placeholders})", symbols
+                )
+                self.conn.execute(
+                    f"DELETE FROM metadata WHERE symbol IN ({placeholders})", symbols
+                )
+            else:
+                self.conn.execute("DELETE FROM price_data")
+                self.conn.execute("DELETE FROM metadata")
+        except Exception as e:
+            print(f"Error clearing cache: {e}")
+
+    def cleanup_expired_data(self) -> None:
+        """Remove expired data from cache."""
+        try:
+            cutoff_date = datetime.now() - self.cache_duration
+            self.conn.execute(
+                "DELETE FROM price_data WHERE created_at < ?", [cutoff_date]
+            )
+        except Exception as e:
+            print(f"Error cleaning up expired data: {e}")
+
+    def close(self) -> None:
+        """Close database connection."""
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()

@@ -5,23 +5,21 @@ Assets: TQQQ + PFIX (payer-swaption rate hedge) + Gold + Cash
 Algorithm: Regime-switch risk budget with TQQQ overweight and vol targeting
 """
 
-from typing import Dict, List, Optional
 import pandas as pd
-import numpy as np
 
 
 class EquityConvexRateStrategy:
     """
     TQQQ strategy with convex rate hedge via PFIX.
-    
+
     Uses regime-switch risk budget for bond/rate sleeve based on
     stock-bond correlation, with structural TQQQ overweight.
     """
-    
-    def __init__(self, config: Optional[Dict] = None):
+
+    def __init__(self, config: dict | None = None):
         """
         Initialize the strategy with configuration parameters.
-        
+
         Args:
             config: Strategy-specific configuration dictionary
         """
@@ -30,14 +28,14 @@ class EquityConvexRateStrategy:
         self.rebalance_frequency = "monthly"
         self.drift_bands = 10
         self.config = config or {}
-        
-    def calculate_weights(self, data: pd.DataFrame) -> Dict[str, float]:
+
+    def calculate_weights(self, data: pd.DataFrame) -> dict[str, float]:
         """
         Calculate target weights based on regime-switch risk budget.
-        
+
         Args:
             data: Market data with returns and correlations
-            
+
         Returns:
             Dictionary of target weights for each asset
         """
@@ -46,40 +44,41 @@ class EquityConvexRateStrategy:
         # TODO: Maintain TQQQ overweight via expected-return tilt
         # TODO: Apply portfolio volatility targeting
         return {}
-    
+
     def detect_correlation_regime(self, data: pd.DataFrame) -> str:
         """
         Detect current stock-bond correlation regime.
-        
+
         Args:
             data: Market data with stock and bond returns
-            
+
         Returns:
             "positive" or "negative" correlation regime
         """
         # TODO: Implement rolling correlation calculation
         # TODO: Determine regime based on correlation threshold
         return "positive"
-    
-    def should_rebalance(self, current_weights: Dict[str, float], 
-                        target_weights: Dict[str, float]) -> bool:
+
+    def should_rebalance(
+        self, current_weights: dict[str, float], target_weights: dict[str, float]
+    ) -> bool:
         """
         Check if rebalancing is needed based on drift bands.
-        
+
         Args:
             current_weights: Current portfolio weights
             target_weights: Target weights from strategy
-            
+
         Returns:
             True if rebalancing is needed
         """
         # TODO: Implement drift band logic
         return False
-    
+
     def validate_config(self) -> bool:
         """
         Validate strategy configuration.
-        
+
         Returns:
             True if configuration is valid
         """

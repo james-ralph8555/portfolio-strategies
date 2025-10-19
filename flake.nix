@@ -19,12 +19,15 @@
           pytest-cov
           pytest-mock
           pyyaml
+          duckdb
         ]);
       in
       {
         devShells.default = pkgs.mkShell {
           buildInputs = [
             pythonEnv
+            pkgs.pre-commit
+            pkgs.ruff
           ];
         };
 

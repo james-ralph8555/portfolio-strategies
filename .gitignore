@@ -151,3 +151,8 @@ Desktop.ini
 # Nix
 result
 result-*
+
+# DuckDB database files
+*.duckdb
+*.duckdb-wal
+*.duckdb-shm

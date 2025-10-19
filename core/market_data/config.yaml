@@ -1,0 +1,35 @@
+# Market Data Configuration
+
+cache:
+  # Path to DuckDB cache database (null for default)
+  cache_path: null
+  # Cache duration in days
+  cache_duration_days: 1
+
+fetcher:
+  # Maximum retry attempts for failed requests
+  max_retries: 3
+  # Base delay between retries (seconds)
+  retry_delay: 1.0
+  # Delay between requests to avoid rate limiting (seconds)
+  rate_limit_delay: 0.5
+
+validation:
+  # Minimum data coverage ratio required (0.0-1.0)
+  min_coverage_ratio: 0.9
+  # Maximum allowed missing data ratio per symbol (0.0-1.0)
+  max_missing_ratio: 0.1
+  # Maximum consecutive days to forward fill missing data
+  max_forward_fill_days: 5
+
+data_sources:
+  # Primary data source
+  primary: "yfinance"
+  # Fallback data sources (if primary fails)
+  fallback: []
+
+logging:
+  # Log level for market data operations
+  level: "INFO"
+  # Log format
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
