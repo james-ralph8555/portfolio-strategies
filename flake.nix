@@ -15,6 +15,9 @@
           yfinance
           numpy
           scipy
+          pytest
+          pytest-mock
+          pyyaml
         ]);
       in
       {
