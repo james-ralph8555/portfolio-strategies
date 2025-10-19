@@ -1,0 +1,32 @@
+# Equity Volatility Barbell Strategy Configuration
+name: equity_vol_barbell
+description: "TQQQ + short vol premium + tail hedge + cash with drawdown triggers"
+
+# Assets
+assets:
+  core: "TQQQ"
+  short_vol: "SVOL"    # Short-VIX premium
+  tail_hedge: "TAIL"   # S&P put ladder
+  cash: "SGOV"
+
+# Strategy Parameters
+barbell_allocation:
+  tqqq_base_weight: 0.7
+  short_vol_weight: 0.15
+  tail_hedge_weight: 0.1
+  cash_weight: 0.05
+
+drawdown_triggers:
+  volatility_spike_threshold: 2.0  # 2x normal volatility
+  max_drawdown_threshold: 0.15    # 15% drawdown
+  tqqq_scaling_factor: 0.5        # Reduce TQQQ by 50% when triggered
+
+vol_sizing:
+  svol_max_weight: 0.2
+  tail_max_weight: 0.15
+  vix_term_structure_threshold: 0.1
+
+rebalancing:
+  frequency: "monthly"
+  drift_bands: 10
+  drawdown_check_frequency: "daily"

@@ -1,0 +1,34 @@
+# Equity Inflation Beta Strategy Configuration
+name: equity_inflation_beta
+description: "TQQQ + commodities + gold + cash with trend/carry signals"
+
+# Assets
+assets:
+  core: "TQQQ"
+  commodities: "PDBC"  # Broad commodities (no K-1)
+  gold: "IAU"
+  cash: "SGOV"
+
+# Strategy Parameters
+signals:
+  trend:
+    lookback_periods: [20, 60, 120]  # Multiple timeframes
+    weight: 0.6
+  carry:
+    weight: 0.4
+  
+risk_parity:
+  commodities_gold_ratio: 0.5  # Equal risk between PDBC and IAU
+  lookback_period: 60
+
+tqqq_overweight:
+  base_weight: 0.6
+  scaling_factor: 1.2
+
+volatility_targeting:
+  target_vol: 0.15
+  lookback_period: 60
+
+rebalancing:
+  frequency: "monthly"
+  drift_bands: 10

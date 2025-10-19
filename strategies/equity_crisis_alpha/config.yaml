@@ -1,0 +1,38 @@
+# Equity Crisis Alpha Strategy Configuration
+name: equity_crisis_alpha
+description: "TQQQ + managed futures + gold + cash with leverage-aware ERC"
+
+# Assets
+assets:
+  core: "TQQQ"  # Primary equity engine
+  diversifiers:
+    - "DBMF"  # Managed futures (can swap with KMLM)
+    - "IAU"   # Gold (can swap with GLD)
+  cash: "SGOV"  # Treasury bills (can swap with BIL)
+
+# Strategy Parameters
+risk_budget:
+  tqqq_weight: 0.6  # Larger risk budget to TQQQ
+  diversifier_weight: 0.3
+  cash_weight: 0.1
+
+volatility_targeting:
+  target_vol: 0.15  # 15% annualized volatility
+  lookback_period: 60  # days
+
+rebalancing:
+  frequency: "monthly"
+  drift_bands: 10  # percentage points
+
+black_litterman:
+  # Views favoring TQQQ outperformance
+  views:
+    - assets: ["TQQQ"]
+      confidence: 0.7
+      expected_return: 0.12  # Annualized
+  
+# Risk Management
+risk_controls:
+  max_leverage: 3.0
+  max_single_asset_weight: 0.8
+  correlation_regime_guard: true
