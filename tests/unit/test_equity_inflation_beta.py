@@ -49,10 +49,10 @@ class TestEquityInflationBetaStrategy:
         """Test get_name method."""
         assert strategy.get_name() == "equity_inflation_beta"
 
-    def test_get_config(self, strategy, sample_config):
+    def test_get_config(self, strategy, equity_inflation_beta_config):
         """Test get_config method."""
         config = strategy.get_config()
-        assert config == sample_config
+        assert config == equity_inflation_beta_config
         assert config is not strategy.config  # Should return a copy
 
     def test_update_config(self, strategy):
@@ -62,9 +62,9 @@ class TestEquityInflationBetaStrategy:
         
         assert strategy.config['rebalancing']['frequency'] == 'daily'
 
-    def test_validate_config_valid(self, sample_config):
+    def test_validate_config_valid(self, equity_inflation_beta_config):
         """Test configuration validation with valid config."""
-        strategy = EquityInflationBetaStrategy(sample_config)
+        strategy = EquityInflationBetaStrategy(equity_inflation_beta_config)
         assert strategy.validate_config() is True
 
     def test_validate_config_minimal(self, minimal_config):
@@ -72,26 +72,26 @@ class TestEquityInflationBetaStrategy:
         strategy = EquityInflationBetaStrategy(minimal_config)
         assert strategy.validate_config() is True
 
-    def test_validate_config_missing_keys(self, sample_config):
+    def test_validate_config_missing_keys(self, equity_inflation_beta_config):
         """Test configuration validation with missing required keys."""
-        incomplete_config = sample_config.copy()
+        incomplete_config = equity_inflation_beta_config.copy()
         del incomplete_config['signals']
         
         strategy = EquityInflationBetaStrategy(incomplete_config)
         assert strategy.validate_config() is False
 
-    def test_validate_config_invalid_signal_weights(self, sample_config):
+    def test_validate_config_invalid_signal_weights(self, equity_inflation_beta_config):
         """Test configuration validation with invalid signal weights."""
-        invalid_config = sample_config.copy()
+        invalid_config = equity_inflation_beta_config.copy()
         invalid_config['signals']['trend']['weight'] = 0.8
-        invalid_config['signals']['carry']['weight'] = 0.4  # Sum = 1.2
+        invalid_config['signals']['carry']['weight'] = 0.4  # Sum > 1.0
         
         strategy = EquityInflationBetaStrategy(invalid_config)
         assert strategy.validate_config() is False
 
-    def test_validate_config_missing_assets(self, sample_config):
+    def test_validate_config_missing_assets(self, equity_inflation_beta_config):
         """Test configuration validation with missing required assets."""
-        invalid_config = sample_config.copy()
+        invalid_config = equity_inflation_beta_config.copy()
         invalid_config['assets'] = {'core': 'TQQQ', 'commodities': 'PDBC'}  # Missing IAU, SGOV
         
         strategy = EquityInflationBetaStrategy(invalid_config)
@@ -117,17 +117,17 @@ class TestEquityInflationBetaStrategy:
         assert signals['PDBC'] == 0
         assert signals['IAU'] == 0
 
-    def test_calculate_trend_signal_missing_columns(self, strategy, sample_price_data):
+    def test_calculate_trend_signal_missing_columns(self, strategy, inflation_beta_price_data):
         """Test trend signal calculation with missing asset columns."""
-        incomplete_data = sample_price_data.drop('PDBC', axis=1)
+        incomplete_data = inflation_beta_price_data.drop('PDBC', axis=1)
         
         signals = strategy.calculate_trend_signal(incomplete_data)
         assert signals['PDBC'] == 0
         assert 'IAU' in signals
 
-    def test_calculate_carry_signal(self, strategy, sample_price_data):
+    def test_calculate_carry_signal(self, strategy, inflation_beta_price_data):
         """Test carry signal calculation."""
-        signals = strategy.calculate_carry_signal(sample_price_data)
+        signals = strategy.calculate_carry_signal(inflation_beta_price_data)
         
         assert isinstance(signals, dict)
         assert 'PDBC' in signals
@@ -146,17 +146,17 @@ class TestEquityInflationBetaStrategy:
         assert signals['PDBC'] == 0
         assert signals['IAU'] == 0
 
-    def test_calculate_carry_signal_missing_columns(self, strategy, sample_price_data):
+    def test_calculate_carry_signal_missing_columns(self, strategy, inflation_beta_price_data):
         """Test carry signal calculation with missing asset columns."""
-        incomplete_data = sample_price_data.drop('IAU', axis=1)
+        incomplete_data = inflation_beta_price_data.drop('IAU', axis=1)
         
         signals = strategy.calculate_carry_signal(incomplete_data)
         assert signals['IAU'] == 0
         assert 'PDBC' in signals
 
-    def test_calculate_risk_parity_weights(self, strategy, sample_price_data):
+    def test_calculate_risk_parity_weights(self, strategy, inflation_beta_price_data):
         """Test risk parity weight calculation."""
-        weights = strategy._calculate_risk_parity_weights(sample_price_data, ['PDBC', 'IAU'])
+        weights = strategy._calculate_risk_parity_weights(inflation_beta_price_data, ['PDBC', 'IAU'])
         
         assert isinstance(weights, dict)
         assert 'PDBC' in weights
@@ -182,9 +182,9 @@ class TestEquityInflationBetaStrategy:
         assert 'MISSING' in weights
         assert abs(sum(weights.values()) - 1.0) < 1e-10
 
-    def test_calculate_portfolio_volatility(self, strategy, sample_price_data):
+    def test_calculate_portfolio_volatility(self, strategy, inflation_beta_price_data):
         """Test portfolio volatility calculation."""
-        vol = strategy._calculate_portfolio_volatility(sample_price_data)
+        vol = strategy._calculate_portfolio_volatility(inflation_beta_price_data)
         
         assert isinstance(vol, (int, float))
         assert vol > 0
@@ -197,9 +197,9 @@ class TestEquityInflationBetaStrategy:
         vol = strategy._calculate_portfolio_volatility(short_data)
         assert vol == 0.15  # Default volatility
 
-    def test_calculate_portfolio_volatility_missing_tqqq(self, strategy, sample_price_data):
+    def test_calculate_portfolio_volatility_missing_tqqq(self, strategy, inflation_beta_price_data):
         """Test portfolio volatility without TQQQ data."""
-        no_tqqq_data = sample_price_data.drop('TQQQ', axis=1)
+        no_tqqq_data = inflation_beta_price_data.drop('TQQQ', axis=1)
         
         vol = strategy._calculate_portfolio_volatility(no_tqqq_data)
         assert vol == 0.15  # Default volatility
@@ -225,12 +225,12 @@ class TestEquityInflationBetaStrategy:
         
         assert strategy.should_rebalance(current_weights, target_weights) is True
 
-    def test_preprocess_data_default(self, strategy, sample_price_data):
+    def test_preprocess_data_default(self, strategy, inflation_beta_price_data):
         """Test default data preprocessing."""
-        processed = strategy.preprocess_data(sample_price_data)
+        processed = strategy.preprocess_data(inflation_beta_price_data)
         
-        assert processed.equals(sample_price_data)
-        assert processed is not sample_price_data  # Should be a copy
+        assert processed.equals(inflation_beta_price_data)
+        assert processed is not inflation_beta_price_data  # Should be a copy
 
     def test_postprocess_weights_default(self, strategy):
         """Test default weight postprocessing."""

@@ -79,13 +79,13 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 
 ### Additional Assets (Mentioned in Tests/Documentation)
 
-#### SPY - SPDR S&P 500 ETF Trust
-- **Description**: Tracks the S&P 500 Index, providing exposure to large-cap U.S. stocks
+#### VOO - Vanguard S&P 500 ETF
+- **Description**: Index-tracking ETF that provides exposure to large-cap U.S. equities via the S&P 500
 - **Asset Class**: Large-Cap Equity
 - **Usage**: Benchmark/reference in tests
 - **Strategies**: Test files only
-- **Expense Ratio**: 0.0945%
-- **Key Characteristics**: Market benchmark, high liquidity, diversified U.S. equity exposure
+- **Expense Ratio**: 0.03%
+- **Key Characteristics**: Broad market benchmark, high liquidity, low-cost core U.S. equity exposure
 
 #### TMF - Direxion Daily 20+ Year Treasury Bull 3X ETF
 - **Description**: 3x leveraged long-term Treasury ETF
@@ -102,22 +102,6 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 - **Strategies**: equity_crisis_alpha (alternative)
 - **Expense Ratio**: 0.90%
 - **Key Characteristics**: Trend-following, quantitative strategy
-
-#### GLD - SPDR Gold Shares
-- **Description**: Gold-backed ETF (alternative to IAU)
-- **Asset Class**: Commodities (Precious Metals)
-- **Usage**: Mentioned as alternative to IAU
-- **Strategies**: equity_crisis_alpha (alternative)
-- **Expense Ratio**: 0.40%
-- **Key Characteristics**: Largest gold ETF, high liquidity
-
-#### BIL - SPDR Bloomberg 1-3 Month T-Bill ETF
-- **Description**: Ultra-short-term Treasury bill ETF (alternative to SGOV)
-- **Asset Class**: Cash Equivalents
-- **Usage**: Mentioned as alternative to SGOV
-- **Strategies**: equity_crisis_alpha (alternative)
-- **Expense Ratio**: 0.135%
-- **Key Characteristics**: Similar to SGOV, slightly different maturity profile
 
 ## Asset Usage Analysis
 
@@ -136,13 +120,11 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 
 ### Gold Exposure
 - **Primary**: IAU (iShares Gold Trust) - 0.25% expense ratio
-- **Alternative**: GLD (SPDR Gold Shares) - 0.40% expense ratio
-- **Analysis**: IAU is more cost-effective with identical exposure. GLD has higher liquidity but higher cost.
+- **Analysis**: IAU is the standardized gold allocation across all strategies; no secondary ticker maintained.
 
 ### Cash Equivalents
 - **Primary**: SGOV (iShares 0-3 Month Treasury) - 0.07% expense ratio
-- **Alternative**: BIL (SPDR 1-3 Month T-Bill) - 0.135% expense ratio
-- **Analysis**: SGOV is more cost-effective with similar exposure. Both provide ultra-short Treasury exposure.
+- **Analysis**: SGOV is the exclusive cash sleeve, ensuring consistent implementation and minimal cost.
 
 ### Managed Futures
 - **Primary**: DBMF (iMGP DBi Managed Futures) - 0.85% expense ratio
@@ -175,8 +157,8 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 ## Cost Analysis
 
 ### Expense Ratios by Asset Class
-- **Cash Equivalents**: 0.07-0.135% (lowest cost)
-- **Precious Metals**: 0.25-0.40% (low cost)
+- **Cash Equivalents**: 0.07% (lowest cost)
+- **Precious Metals**: 0.25% (low cost)
 - **Rate Hedging**: 0.50% (moderate cost)
 - **Broad Commodities**: 0.59% (moderate cost)
 - **Volatility Strategies**: 0.50-0.55% (moderate cost, recently reduced)
@@ -193,8 +175,8 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 ## Recommendations
 
 ### Optimization Opportunities
-1. **Standardize on IAU** over GLD for gold exposure (cost savings)
-2. **Standardize on SGOV** over BIL for cash (cost savings)
+1. **Maintain standardization** on IAU for gold exposure to preserve cost efficiency
+2. **Maintain SGOV** as the dedicated cash sleeve for consistent liquidity management
 3. **Consider DBMF vs KMLM** based on performance and strategy fit
 4. **Evaluate SVOL vs TAIL** combination for optimal volatility management
 
@@ -212,10 +194,10 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 
 ## Conclusion
 
-The portfolio demonstrates a well-structured approach with consistent core holdings (TQQQ, SGOV) and strategy-specific diversification assets. The use of specialized ETFs provides targeted exposure to specific risk factors (rate risk, volatility, inflation, crisis events). Recent expense ratio reductions in volatility strategies (SVOL, TAIL) have significantly improved the cost efficiency of the equity_vol_barbell strategy. Cost optimization opportunities exist in standardizing on lower-cost alternatives for similar exposures (IAU vs GLD, SGOV vs BIL). The overall asset allocation provides comprehensive market coverage while maintaining distinct strategy identities.
+The portfolio demonstrates a well-structured approach with consistent core holdings (TQQQ, SGOV) and strategy-specific diversification assets. The use of specialized ETFs provides targeted exposure to specific risk factors (rate risk, volatility, inflation, crisis events). Recent expense ratio reductions in volatility strategies (SVOL, TAIL) have significantly improved the cost efficiency of the equity_vol_barbell strategy. Standardizing on the lowest-cost tickers for each sleeve (IAU for gold, SGOV for cash) keeps redundant exposures out of the line-up while preserving coverage. The overall asset allocation provides comprehensive market coverage while maintaining distinct strategy identities.
 
 **Recent Updates (October 2025)**:
 - SVOL expense ratio reduced from 0.72% to 0.50%
 - TAIL expense ratio reduced from ~0.75% to 0.55%
-- Updated expense ratios for TMF (1.09%), KMLM (0.90%), and BIL (0.135%)
+- Updated expense ratios for TMF (1.09%) and KMLM (0.90%)
 - Managed futures ETFs (DBMF vs KMLM) confirmed as similar asset class but not interchangeable due to different methodologies

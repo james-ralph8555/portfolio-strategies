@@ -243,6 +243,12 @@ def equity_vol_barbell_strategy(equity_vol_barbell_config):
 
 
 @pytest.fixture
+def strategy(equity_inflation_beta_config):
+    """Generic strategy fixture for testing - defaults to equity inflation beta."""
+    return EquityInflationBetaStrategy(equity_inflation_beta_config)
+
+
+@pytest.fixture
 def invalid_config():
     """Create invalid configuration for testing validation."""
     return {

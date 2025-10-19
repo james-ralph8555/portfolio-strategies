@@ -62,7 +62,7 @@ class TestEquityVolBarbellFunctional:
         
         # Bull market: positive returns with low volatility
         data['TQQQ_Returns'] = np.random.normal(0.002, 0.02, 252)  # Positive drift
-        data['SPY_Returns'] = np.random.normal(0.0008, 0.01, 252)  # Positive drift
+        data['VOO_Returns'] = np.random.normal(0.0008, 0.01, 252)  # Positive drift
         data['SVOL_Returns'] = np.random.normal(0.0001, 0.005, 252)  # Low vol returns
         data['TAIL_Returns'] = np.random.normal(-0.0002, 0.008, 252)  # Negative drift (cost of hedge)
         
@@ -71,7 +71,7 @@ class TestEquityVolBarbellFunctional:
         data['VIX_MA20'] = data['VIX'].rolling(window=20).mean()
         
         # Calculate drawdown
-        data['Cumulative_Return'] = (1 + data['SPY_Returns']).cumprod()
+        data['Cumulative_Return'] = (1 + data['VOO_Returns']).cumprod()
         data['Peak'] = data['Cumulative_Return'].expanding().max()
         data['Drawdown'] = (data['Cumulative_Return'] - data['Peak']) / data['Peak']
         
@@ -87,7 +87,7 @@ class TestEquityVolBarbellFunctional:
         
         # Bear market: negative returns with high volatility
         data['TQQQ_Returns'] = np.random.normal(-0.003, 0.04, 252)  # Negative drift, high vol
-        data['SPY_Returns'] = np.random.normal(-0.001, 0.02, 252)  # Negative drift
+        data['VOO_Returns'] = np.random.normal(-0.001, 0.02, 252)  # Negative drift
         data['SVOL_Returns'] = np.random.normal(0.0003, 0.01, 252)  # Volatility premium
         data['TAIL_Returns'] = np.random.normal(0.001, 0.015, 252)  # Positive tail returns
         
@@ -98,7 +98,7 @@ class TestEquityVolBarbellFunctional:
         data['VIX_MA20'] = data['VIX'].rolling(window=20).mean()
         
         # Calculate drawdown
-        data['Cumulative_Return'] = (1 + data['SPY_Returns']).cumprod()
+        data['Cumulative_Return'] = (1 + data['VOO_Returns']).cumprod()
         data['Peak'] = data['Cumulative_Return'].expanding().max()
         data['Drawdown'] = (data['Cumulative_Return'] - data['Peak']) / data['Peak']
         
@@ -114,7 +114,7 @@ class TestEquityVolBarbellFunctional:
         
         # Sideways market with volatility
         data['TQQQ_Returns'] = np.random.normal(0.0, 0.035, 252)  # No drift, high vol
-        data['SPY_Returns'] = np.random.normal(0.0, 0.018, 252)  # No drift
+        data['VOO_Returns'] = np.random.normal(0.0, 0.018, 252)  # No drift
         data['SVOL_Returns'] = np.random.normal(0.0002, 0.008, 252)  # Volatility premium
         data['TAIL_Returns'] = np.random.normal(0.0001, 0.012, 252)  # Small positive
         
@@ -123,7 +123,7 @@ class TestEquityVolBarbellFunctional:
         data['VIX_MA20'] = data['VIX'].rolling(window=20).mean()
         
         # Calculate drawdown
-        data['Cumulative_Return'] = (1 + data['SPY_Returns']).cumprod()
+        data['Cumulative_Return'] = (1 + data['VOO_Returns']).cumprod()
         data['Peak'] = data['Cumulative_Return'].expanding().max()
         data['Drawdown'] = (data['Cumulative_Return'] - data['Peak']) / data['Peak']
         
@@ -270,7 +270,7 @@ class TestEquityVolBarbellFunctional:
         all_returns = np.concatenate([regime1_returns, regime2_returns, regime3_returns])
         
         data = pd.DataFrame(index=dates)
-        data['SPY_Returns'] = all_returns
+        data['VOO_Returns'] = all_returns
         data['TQQQ_Returns'] = all_returns * 2.5  # Leveraged version
         data['SVOL_Returns'] = np.random.normal(0.0002, 0.008, 360)
         data['TAIL_Returns'] = np.random.normal(0.0001, 0.012, 360)
@@ -290,7 +290,7 @@ class TestEquityVolBarbellFunctional:
         data['VIX_MA20'] = data['VIX'].rolling(window=20).mean()
         
         # Calculate drawdown
-        data['Cumulative_Return'] = (1 + data['SPY_Returns']).cumprod()
+        data['Cumulative_Return'] = (1 + data['VOO_Returns']).cumprod()
         data['Peak'] = data['Cumulative_Return'].expanding().max()
         data['Drawdown'] = (data['Cumulative_Return'] - data['Peak']) / data['Peak']
         
@@ -346,7 +346,7 @@ class TestEquityVolBarbellFunctional:
         
         # Test with data missing required columns
         incomplete_data = pd.DataFrame({
-            'SPY_Returns': [0.01, 0.02, -0.01]
+            'VOO_Returns': [0.01, 0.02, -0.01]
             # Missing other required columns
         })
         weights = strategy.calculate_weights(incomplete_data)
@@ -355,7 +355,7 @@ class TestEquityVolBarbellFunctional:
         # Test with NaN values
         nan_data = pd.DataFrame({
             'TQQQ_Returns': [np.nan, 0.01, 0.02],
-            'SPY_Returns': [0.01, np.nan, -0.01],
+            'VOO_Returns': [0.01, np.nan, -0.01],
             'SVOL_Returns': [0.001, 0.002, np.nan],
             'TAIL_Returns': [0.0005, np.nan, 0.001],
             'VIX': [20, 25, 30],

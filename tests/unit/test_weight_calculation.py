@@ -46,9 +46,9 @@ class TestWeightCalculation:
         # Should handle insufficient data gracefully
         assert all(weight >= 0 for weight in weights.values())
 
-    def test_calculate_weights_missing_assets(self, strategy, sample_price_data):
+    def test_calculate_weights_missing_assets(self, strategy, inflation_beta_price_data):
         """Test weight calculation with missing asset data."""
-        incomplete_data = sample_price_data.drop('PDBC', axis=1)
+        incomplete_data = inflation_beta_price_data.drop('PDBC', axis=1)
         
         weights = strategy.calculate_weights(incomplete_data)
         

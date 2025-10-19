@@ -7,8 +7,8 @@ assets:
   core: "TQQQ"  # Primary equity engine
   diversifiers:
     - "DBMF"  # Managed futures (can swap with KMLM)
-    - "IAU"   # Gold (can swap with GLD)
-  cash: "SGOV"  # Treasury bills (can swap with BIL)
+    - "IAU"   # Gold allocation
+  cash: "SGOV"  # Treasury bills
 
 # Strategy Parameters
 risk_budget:

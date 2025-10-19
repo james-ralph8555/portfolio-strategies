@@ -1,7 +1,7 @@
 """
 Equity Engine + Convex Rate Hedge Strategy
 
-Assets: TQQQ + PFIX (payer-swaption rate hedge) + Gold (IAU/GLD) + Cash (SGOV/BIL)
+Assets: TQQQ + PFIX (payer-swaption rate hedge) + Gold (IAU) + Cash (SGOV)
 Algorithm: Regime-switch risk budget for the bond/rate sleeve with volatility targeting
 """
 

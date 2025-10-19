@@ -62,7 +62,7 @@ class TestEquityVolBarbellStrategy:
         
         # Add returns for different assets
         data['TQQQ_Returns'] = np.random.normal(0.001, 0.03, 100)  # High volatility
-        data['SPY_Returns'] = np.random.normal(0.0005, 0.015, 100)  # Moderate volatility
+        data['VOO_Returns'] = np.random.normal(0.0005, 0.015, 100)  # Moderate volatility
         data['SVOL_Returns'] = np.random.normal(0.0002, 0.008, 100)  # Low volatility
         data['TAIL_Returns'] = np.random.normal(0.0001, 0.012, 100)  # Tail hedge
         
@@ -71,7 +71,7 @@ class TestEquityVolBarbellStrategy:
         data['VIX_MA20'] = data['VIX'].rolling(window=20).mean()
         
         # Add some drawdown scenarios
-        data['Cumulative_Return'] = (1 + data['SPY_Returns']).cumprod()
+        data['Cumulative_Return'] = (1 + data['VOO_Returns']).cumprod()
         data['Peak'] = data['Cumulative_Return'].expanding().max()
         data['Drawdown'] = (data['Cumulative_Return'] - data['Peak']) / data['Peak']
         
@@ -253,8 +253,8 @@ class TestEquityVolBarbellStrategy:
 
     def test_should_rebalance_no_drift(self, strategy):
         """Test rebalancing logic with no drift."""
-        current_weights = {'TQQQ': 0.30, 'SPY': 0.30, 'SVOL': 0.25, 'TAIL': 0.15}
-        target_weights = {'TQQQ': 0.30, 'SPY': 0.30, 'SVOL': 0.25, 'TAIL': 0.15}
+        current_weights = {'TQQQ': 0.30, 'VOO': 0.30, 'SVOL': 0.25, 'TAIL': 0.15}
+        target_weights = {'TQQQ': 0.30, 'VOO': 0.30, 'SVOL': 0.25, 'TAIL': 0.15}
         
         assert strategy.should_rebalance(current_weights, target_weights) is False
 
@@ -324,7 +324,7 @@ class TestEquityVolBarbellStrategy:
 
     def test_postprocess_weights(self, strategy):
         """Test weight postprocessing."""
-        weights = {'TQQQ': 0.30, 'SPY': 0.30, 'SVOL': 0.25, 'TAIL': 0.15}
+        weights = {'TQQQ': 0.30, 'VOO': 0.30, 'SVOL': 0.25, 'TAIL': 0.15}
         processed = strategy.postprocess_weights(weights)
         
         # Should return a copy

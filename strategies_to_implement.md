@@ -2,7 +2,7 @@
 Yes. Use a TQQQ-centric core, then add uncorrelated sleeves with rules that bias expected return and control left-tail risk. Four ETF-only blueprints and the algorithm I’d use for each:
 
 1. **Equity engine + crisis alpha**
-   Assets: **TQQQ + DBMF/KMLM (managed futures) + Gold (IAU/GLD) + Cash (SGOV/BIL)**.
+   Assets: **TQQQ + DBMF/KMLM (managed futures) + Gold (IAU) + Cash (SGOV)**.
    Algorithm: **Leverage-aware ERC** with a **Black–Litterman tilt** that assigns a larger risk budget to TQQQ; **volatility targeting** at the portfolio level; **monthly** rebalance with 10-pt drift bands. Evidence: time-series momentum works across futures; managed-futures ETFs deliver trend exposure; gold’s equity correlation is near zero in calm times and turns negative in stress. Vol-managed overlays raise Sharpe. ([AQR Capital Management][1])
 
 2. **Equity engine + convex rate hedge**
@@ -21,7 +21,7 @@ Yes. Use a TQQQ-centric core, then add uncorrelated sleeves with rules that bias
 
 * **Targeting**: set a portfolio vol cap (e.g., 12–18% annualized). Volatility targeting is robust across factors and asset classes. ([Wiley Online Library][6])
 * **Rebalance**: monthly with 10-pt drift bands; add a **correlation-regime guard** for bond/rate hedges. Positive stock–bond correlation argues for more gold/managed futures and less linear duration. ([AQR Capital Management][7])
-* **Cash**: treat SGOV/BIL as the shock absorber, not return engine. ([ishares.com][8])
+* **Cash**: treat SGOV as the shock absorber, not return engine. ([ishares.com][8])
 
 Pick one blueprint and I’ll translate it into precise weights, bands, and triggers aligned to your risk target.
 

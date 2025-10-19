@@ -5,8 +5,8 @@ TQQQ-centric strategy with managed futures and gold for crisis alpha protection.
 
 ## Assets
 - **Core**: TQQQ (3x Nasdaq)
-- **Diversifiers**: DBMF/KMLM (managed futures), IAU/GLD (gold)
-- **Cash**: SGOV/BIL (treasury bills)
+- **Diversifiers**: DBMF/KMLM (managed futures), IAU (gold)
+- **Cash**: SGOV (treasury bills)
 
 ## Algorithm
 1. **Leverage-aware Equal Risk Contribution (ERC)**

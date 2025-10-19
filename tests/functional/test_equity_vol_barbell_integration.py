@@ -53,7 +53,7 @@ class TestEquityVolBarbellIntegration:
         # Mock yfinance response
         mock_data = pd.DataFrame({
             'TQQQ': np.random.normal(100, 10, 100),
-            'SPY': np.random.normal(400, 20, 100),
+            'VOO': np.random.normal(400, 20, 100),
             'SVOL': np.random.normal(50, 5, 100),
             'TAIL': np.random.normal(60, 8, 100),
             '^VIX': np.random.normal(20, 5, 100)
@@ -97,7 +97,7 @@ class TestEquityVolBarbellIntegration:
         # Create test market data
         market_data = pd.DataFrame({
             'TQQQ_Returns': [0.01, 0.02, -0.01],
-            'SPY_Returns': [0.005, 0.008, -0.003],
+            'VOO_Returns': [0.005, 0.008, -0.003],
             'SVOL_Returns': [0.001, 0.002, 0.0005],
             'TAIL_Returns': [0.0005, 0.001, 0.0008],
             'VIX': [20, 22, 25],
@@ -141,7 +141,7 @@ class TestEquityVolBarbellIntegration:
         # Create test data
         market_data = pd.DataFrame({
             'TQQQ_Returns': [0.01, -0.02, 0.01],
-            'SPY_Returns': [0.005, -0.008, 0.005],
+            'VOO_Returns': [0.005, -0.008, 0.005],
             'SVOL_Returns': [0.001, 0.002, 0.001],
             'TAIL_Returns': [0.0005, 0.001, 0.0005],
             'VIX': [20, 30, 25],
@@ -179,7 +179,7 @@ class TestEquityVolBarbellIntegration:
                     self.results.append({
                         'date': date,
                         'weights': weights,
-                        'return': historical_data['SPY_Returns'].get(date, 0)
+                        'return': historical_data['VOO_Returns'].get(date, 0)
                     })
                 
                 return self.results
@@ -188,7 +188,7 @@ class TestEquityVolBarbellIntegration:
         dates = pd.date_range('2023-01-01', periods=30, freq='D')
         market_data = pd.DataFrame({
             'TQQQ_Returns': np.random.normal(0.001, 0.02, 30),
-            'SPY_Returns': np.random.normal(0.0005, 0.015, 30),
+            'VOO_Returns': np.random.normal(0.0005, 0.015, 30),
             'SVOL_Returns': np.random.normal(0.0002, 0.008, 30),
             'TAIL_Returns': np.random.normal(0.0001, 0.012, 30),
             'VIX': 20 + np.random.normal(0, 3, 30),
@@ -281,7 +281,7 @@ class TestEquityVolBarbellIntegration:
         # Create test data
         market_data = pd.DataFrame({
             'TQQQ_Returns': [0.01, 0.02, -0.01],
-            'SPY_Returns': [0.005, 0.008, -0.003],
+            'VOO_Returns': [0.005, 0.008, -0.003],
             'SVOL_Returns': [0.001, 0.002, 0.0005],
             'TAIL_Returns': [0.0005, 0.001, 0.0008],
             'VIX': [20, 22, 25],
@@ -343,8 +343,8 @@ class TestEquityVolBarbellIntegration:
                 
                 # Add drawdown if missing
                 if 'Drawdown' not in processed.columns:
-                    if 'SPY_Returns' in processed.columns:
-                        cumulative = (1 + processed['SPY_Returns']).cumprod()
+                    if 'VOO_Returns' in processed.columns:
+                        cumulative = (1 + processed['VOO_Returns']).cumprod()
                         peak = cumulative.expanding().max()
                         processed['Drawdown'] = (cumulative - peak) / peak
                     else:
@@ -357,13 +357,13 @@ class TestEquityVolBarbellIntegration:
         
         # Add mock data sources
         pipeline.add_data_source('TQQQ', lambda n: np.random.normal(100, 10, n))
-        pipeline.add_data_source('SPY', lambda n: np.random.normal(400, 20, n))
+        pipeline.add_data_source('VOO', lambda n: np.random.normal(400, 20, n))
         pipeline.add_data_source('SVOL', lambda n: np.random.normal(50, 5, n))
         pipeline.add_data_source('TAIL', lambda n: np.random.normal(60, 8, n))
         
         # Fetch and process data
         raw_data = pipeline.fetch_data(
-            ['TQQQ', 'SPY', 'SVOL', 'TAIL'],
+            ['TQQQ', 'VOO', 'SVOL', 'TAIL'],
             '2023-01-01',
             '2023-01-31'
         )

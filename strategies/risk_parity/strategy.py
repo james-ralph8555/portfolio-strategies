@@ -235,19 +235,20 @@ class RiskParityStrategy(Strategy):
     
     def get_portfolio_metrics(self, data: pd.DataFrame, weights: Dict[str, float]) -> Dict[str, float]:
         """
-        Calculate portfolio risk metrics for monitoring.
+        Calculate portfolio metrics.
         
         Args:
             data: Market data
-            weights: Current portfolio weights
+            weights: Portfolio weights
             
         Returns:
-            Dictionary of portfolio metrics
+            Dictionary with portfolio metrics
         """
+        # Calculate returns using the lookback period
         returns_data = data[list(weights.keys())].iloc[-self.lookback_period:].pct_change().dropna()
         
         if len(returns_data) < 10:
-            return {"volatility": 0.0, "risk_parity_error": 0.0}
+            return {"volatility": 0.0, "risk_parity_error": 1.0}
         
         # Calculate covariance matrix
         cov_matrix = returns_data.cov() * 252
@@ -264,6 +265,43 @@ class RiskParityStrategy(Strategy):
             "volatility": float(portfolio_vol),
             "risk_parity_error": self._calculate_risk_parity_error(risk_contributions)
         }
+
+    def update_config(self, new_config: Dict) -> None:
+        """
+        Update strategy configuration and instance attributes.
+        
+        Args:
+            new_config: New configuration parameters
+        """
+        self.config.update(new_config)
+        
+        # Update instance attributes if they exist in new config
+        if "risk_parity" in new_config:
+            rp_config = new_config["risk_parity"]
+            if "risk_budget" in rp_config:
+                self.risk_budget.update(rp_config["risk_budget"])
+            if "lookback_period" in rp_config:
+                self.lookback_period = rp_config["lookback_period"]
+            if "optimization" in rp_config:
+                opt_config = rp_config["optimization"]
+                if "tolerance" in opt_config:
+                    self.tolerance = opt_config["tolerance"]
+        
+        if "risk_management" in new_config:
+            rm_config = new_config["risk_management"]
+            if "max_leverage" in rm_config:
+                self.max_leverage = rm_config["max_leverage"]
+            if "volatility_target" in rm_config:
+                self.volatility_target = rm_config["volatility_target"]
+        
+        if "rebalancing" in new_config:
+            reb_config = new_config["rebalancing"]
+            if "frequency" in reb_config:
+                self.rebalance_frequency = reb_config["frequency"]
+            if "drift_bands" in reb_config:
+                self.drift_bands = reb_config["drift_bands"]
+        
+        self.validate_config()
     
     def _calculate_risk_parity_error(self, risk_contributions: np.ndarray) -> float:
         """

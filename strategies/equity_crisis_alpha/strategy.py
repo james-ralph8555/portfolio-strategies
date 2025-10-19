@@ -1,7 +1,7 @@
 """
 Equity Engine + Crisis Alpha Strategy
 
-Assets: TQQQ + DBMF/KMLM (managed futures) + Gold (IAU/GLD) + Cash (SGOV/BIL)
+Assets: TQQQ + DBMF/KMLM (managed futures) + Gold (IAU) + Cash (SGOV)
 Algorithm: Leverage-aware ERC with Black-Litterman tilt, volatility targeting, monthly rebalance
 """
 
