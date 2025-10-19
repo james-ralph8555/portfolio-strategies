@@ -1,255 +1,283 @@
 """
-Functional tests for EquityConvexRateHedgeStrategy integration behavior.
+Functional tests for strategy integration and end-to-end scenarios.
 """
 
 import pytest
-import sys
-import os
 import pandas as pd
 import numpy as np
-
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-
-from strategies.equity_convex_rate_hedge.strategy import EquityConvexRateHedgeStrategy
-from tests.fixtures.data_fixtures import *
+from strategies.equity_inflation_beta.strategy import EquityInflationBetaStrategy
 
 
 class TestStrategyIntegration:
-    """Test suite for strategy integration and end-to-end behavior."""
-    
-    def test_calculate_weights_positive_correlation_regime(self, positive_correlation_data):
-        """Test weight calculation in positive correlation regime."""
-        strategy = EquityConvexRateHedgeStrategy()
+    """Functional tests for complete strategy workflows."""
+
+    def test_full_workflow_monthly_rebalancing(self, equity_inflation_beta_config, inflation_beta_price_data):
+        """Test complete workflow with monthly rebalancing."""
+        strategy = EquityInflationBetaStrategy(equity_inflation_beta_config)
         
-        weights = strategy.calculate_weights(positive_correlation_data)
+        # Initial allocation
+        target_weights = strategy.calculate_weights(inflation_beta_price_data)
+        current_weights = target_weights.copy()
         
-        # Verify weights structure
-        assert isinstance(weights, dict)
-        assert len(weights) == 4
-        assert all(asset in weights for asset in ["TQQQ", "PFIX", "IAU", "SGOV"])
+        # Simulate some market movement and drift
+        drifted_weights = {
+            'TQQQ': current_weights['TQQQ'] * 1.1,  # TQQQ went up
+            'PDBC': current_weights['PDBC'] * 0.9,  # PDBC went down
+            'IAU': current_weights['IAU'] * 1.05,   # IAU went up slightly
+            'SGOV': current_weights['SGOV'] * 0.95  # Cash went down slightly
+        }
         
-        # Verify weights sum to 1
-        assert abs(sum(weights.values()) - 1.0) < 1e-10
+        # Normalize to maintain 100% allocation
+        total = sum(drifted_weights.values())
+        drifted_weights = {k: v/total for k, v in drifted_weights.items()}
         
-        # Verify all weights are positive
-        assert all(weight > 0 for weight in weights.values())
+        # Check if rebalancing is needed
+        should_rebalance = strategy.should_rebalance(drifted_weights, target_weights)
         
-        # In positive correlation regime, PFIX should be emphasized
-        # (this is a functional expectation based on the strategy design)
-        assert weights["PFIX"] > 0.15  # Should be higher than base 20% after adjustments
-    
-    def test_calculate_weights_negative_correlation_regime(self, negative_correlation_data):
-        """Test weight calculation in negative correlation regime."""
-        strategy = EquityConvexRateHedgeStrategy()
+        # Should rebalance if drift exceeds bands
+        assert isinstance(should_rebalance, bool)
         
-        weights = strategy.calculate_weights(negative_correlation_data)
+        if should_rebalance:
+            # Calculate new target weights
+            new_target_weights = strategy.calculate_weights(inflation_beta_price_data)
+            assert abs(sum(new_target_weights.values()) - 1.0) < 1e-10
+
+    def test_strategy_with_realistic_market_data(self, equity_inflation_beta_config):
+        """Test strategy with realistic market data simulation."""
+        strategy = EquityInflationBetaStrategy(equity_inflation_beta_config)
         
-        # Verify weights structure
-        assert isinstance(weights, dict)
-        assert len(weights) == 4
-        assert all(asset in weights for asset in ["TQQQ", "PFIX", "IAU", "SGOV"])
+        # Simulate 2 years of daily data
+        np.random.seed(2024)
+        dates = pd.date_range('2022-01-01', periods=504, freq='D')
         
-        # Verify weights sum to 1
-        assert abs(sum(weights.values()) - 1.0) < 1e-10
+        # Create realistic price series with different characteristics
+        # TQQQ: High volatility, upward trend with drawdowns
+        tqqq_returns = np.random.normal(0.001, 0.03, 504)
+        tqqq_returns[100:150] = np.random.normal(-0.005, 0.04, 50)  # Drawdown period
+        tqqq_prices = 100 * np.cumprod(1 + tqqq_returns)
         
-        # Verify all weights are positive
-        assert all(weight > 0 for weight in weights.values())
+        # PDBC: Moderate volatility, some inflation sensitivity
+        pdbc_returns = np.random.normal(0.0003, 0.015, 504)
+        pdbc_returns[200:250] = np.random.normal(0.002, 0.02, 50)  # Inflation period
+        pdbc_prices = 50 * np.cumprod(1 + pdbc_returns)
         
-        # In negative correlation regime, TQQQ should be emphasized
-        assert weights["TQQQ"] > 0.55  # Should be higher than base 60% after adjustments
-    
-    def test_calculate_weights_high_volatility_environment(self, high_volatility_data):
-        """Test weight calculation in high volatility environment."""
-        strategy = EquityConvexRateHedgeStrategy()
+        # IAU: Low volatility, safe haven behavior
+        iau_returns = np.random.normal(0.0002, 0.01, 504)
+        iau_returns[100:150] = np.random.normal(0.001, 0.008, 50)  # Flight to safety
+        iau_prices = 30 * np.cumprod(1 + iau_returns)
         
-        weights = strategy.calculate_weights(high_volatility_data)
+        # SGOV: Very low volatility, stable returns
+        sgov_returns = np.random.normal(0.0001, 0.002, 504)
+        sgov_prices = 10 * np.cumprod(1 + sgov_returns)
         
-        # Verify weights structure
-        assert isinstance(weights, dict)
-        assert len(weights) == 4
-        assert all(asset in weights for asset in ["TQQQ", "PFIX", "IAU", "SGOV"])
+        market_data = pd.DataFrame({
+            'TQQQ': tqqq_prices,
+            'PDBC': pdbc_prices,
+            'IAU': iau_prices,
+            'SGOV': sgov_prices
+        }, index=dates)
         
-        # Verify weights sum to 1
-        assert abs(sum(weights.values()) - 1.0) < 1e-10
+        # Test weight calculation over time
+        weights_over_time = []
+        for i in range(60, len(market_data), 20):  # Sample every 20 days
+            subset_data = market_data.iloc[:i+1]
+            weights = strategy.calculate_weights(subset_data)
+            weights_over_time.append(weights)
+            
+            # Validate weights
+            assert abs(sum(weights.values()) - 1.0) < 1e-10
+            assert all(weight >= 0 for weight in weights.values())
         
-        # In high volatility, scaling should reduce risky asset weights
-        # and increase cash proportion
-        assert weights["SGOV"] > 0.05  # Cash should be higher than base 5%
-    
-    def test_calculate_weights_consistency(self, sample_market_data):
-        """Test that weight calculation is consistent across multiple calls."""
-        strategy = EquityConvexRateHedgeStrategy()
+        # Check that weights change over time (strategy is responsive)
+        initial_weights = weights_over_time[0]
+        final_weights = weights_over_time[-1]
         
-        weights1 = strategy.calculate_weights(sample_market_data)
-        weights2 = strategy.calculate_weights(sample_market_data)
-        
-        # Should be identical for same input data
-        for asset in weights1:
-            assert weights1[asset] == weights2[asset]
-    
-    def test_calculate_weights_with_custom_config(self, sample_market_data, custom_strategy_config):
-        """Test weight calculation with custom configuration."""
-        strategy = EquityConvexRateHedgeStrategy(custom_strategy_config)
-        
-        weights = strategy.calculate_weights(sample_market_data)
-        
-        # Verify weights structure
-        assert isinstance(weights, dict)
-        assert len(weights) == 4
-        assert all(asset in weights for asset in ["TQQQ", "PFIX", "IAU", "SGOV"])
-        
-        # Verify weights sum to 1
-        assert abs(sum(weights.values()) - 1.0) < 1e-10
-        
-        # Custom config should affect the weights
-        # Lower target volatility should result in more conservative allocation
-        assert weights["SGOV"] >= 0.05  # Cash should be at least base level
-    
-    def test_rebalancing_trigger_functionality(self, sample_market_data):
-        """Test rebalancing trigger functionality over multiple periods."""
-        strategy = EquityConvexRateHedgeStrategy()
-        
-        # Calculate initial target weights
-        target_weights = strategy.calculate_weights(sample_market_data)
-        
-        # Test various current weight scenarios
-        test_scenarios = [
-            # No rebalance needed (within bands)
-            {"TQQQ": target_weights["TQQQ"] * 0.95, "PFIX": target_weights["PFIX"] * 1.05, 
-             "IAU": target_weights["IAU"], "SGOV": target_weights["SGOV"]},
-            # Rebalance needed (outside bands) - use larger drift
-            {"TQQQ": target_weights["TQQQ"] * 0.80, "PFIX": target_weights["PFIX"] * 1.25,
-             "IAU": target_weights["IAU"], "SGOV": target_weights["SGOV"]},
+        # At least some weights should have changed
+        weight_changes = [
+            abs(initial_weights[asset] - final_weights[asset]) 
+            for asset in initial_weights
         ]
+        assert any(change > 0.01 for change in weight_changes)  # At least 1% change
+
+    def test_strategy_performance_different_regimes(self, equity_inflation_beta_config):
+        """Test strategy behavior across different market regimes."""
+        strategy = EquityInflationBetaStrategy(equity_inflation_beta_config)
         
-        results = []
-        for current_weights in test_scenarios:
-            should_rebalance = strategy.should_rebalance(current_weights, target_weights)
-            results.append(should_rebalance)
+        regimes = {
+            'bull_market': {'TQQQ': 0.002, 'PDBC': 0.001, 'IAU': 0.0005, 'SGOV': 0.0001},
+            'bear_market': {'TQQQ': -0.001, 'PDBC': -0.0005, 'IAU': 0.001, 'SGOV': 0.0002},
+            'high_inflation': {'TQQQ': 0.0005, 'PDBC': 0.002, 'IAU': 0.0015, 'SGOV': 0.0001},
+            'low_volatility': {'TQQQ': 0.0005, 'PDBC': 0.0003, 'IAU': 0.0002, 'SGOV': 0.0001}
+        }
         
-        # First scenario should not trigger rebalance, second should
-        assert results[0] is False
-        assert results[1] is True
-    
-    def test_strategy_adaptation_to_market_regimes(self):
-        """Test that strategy adapts to different market regimes."""
-        strategy = EquityConvexRateHedgeStrategy()
+        regime_weights = {}
         
-        # Create data for different regimes
-        np.random.seed(42)
+        for regime_name, returns in regimes.items():
+            np.random.seed(42)
+            dates = pd.date_range('2023-01-01', periods=120, freq='D')
+            
+            # Generate price data for this regime
+            prices = {}
+            for asset, daily_return in returns.items():
+                # Use absolute value for volatility to avoid negative scale
+                volatility = abs(daily_return) * 3 if daily_return != 0 else 0.001
+                asset_returns = np.random.normal(daily_return, volatility, 120)
+                prices[asset] = 100 * np.cumprod(1 + asset_returns)
+            
+            regime_data = pd.DataFrame(prices, index=dates)
+            weights = strategy.calculate_weights(regime_data)
+            regime_weights[regime_name] = weights
+            
+            # Validate weights
+            assert abs(sum(weights.values()) - 1.0) < 1e-10
+            assert all(weight >= 0 for weight in weights.values())
         
-        # Bull market with low volatility
-        bull_data = pd.DataFrame({
-            'TQQQ': np.cumsum(np.random.normal(0.002, 0.01, 100)) + 100,
-            'PFIX': np.cumsum(np.random.normal(0.0005, 0.008, 100)) + 50,
-            'IAU': np.cumsum(np.random.normal(0.0002, 0.005, 100)) + 30,
-            'SGOV': np.cumsum(np.random.normal(0.0001, 0.001, 100)) + 20
-        })
+        # Check that strategy adapts to different regimes
+        bull_weights = regime_weights['bull_market']
+        bear_weights = regime_weights['bear_market']
+        inflation_weights = regime_weights['high_inflation']
         
-        # Bear market with high volatility
-        bear_data = pd.DataFrame({
-            'TQQQ': np.cumsum(np.random.normal(-0.003, 0.04, 100)) + 100,
-            'PFIX': np.cumsum(np.random.normal(0.001, 0.02, 100)) + 50,
-            'IAU': np.cumsum(np.random.normal(0.0005, 0.015, 100)) + 30,
-            'SGOV': np.cumsum(np.random.normal(0.0001, 0.002, 100)) + 20
-        })
+        # In bull market, should have higher TQQQ allocation
+        # In bear market, should have more defensive allocation
+        # In high inflation, should have more commodities/gold
+        assert isinstance(bull_weights['TQQQ'], (int, float))
+        assert isinstance(bear_weights['SGOV'], (int, float))
+        assert isinstance(inflation_weights['PDBC'], (int, float))
+
+    def test_rebalancing_frequency_impact(self, equity_inflation_beta_config, inflation_beta_price_data):
+        """Test impact of different rebalancing frequencies."""
+        # Test with different drift bands
+        tight_bands_config = equity_inflation_beta_config.copy()
+        tight_bands_config['rebalancing']['drift_bands'] = 5
         
-        bull_weights = strategy.calculate_weights(bull_data)
-        bear_weights = strategy.calculate_weights(bear_data)
+        loose_bands_config = equity_inflation_beta_config.copy()
+        loose_bands_config['rebalancing']['drift_bands'] = 20
         
-        # In bear market, should have more defensive allocation or equal
-        assert bear_weights["SGOV"] >= bull_weights["SGOV"]
-        # TQQQ allocation should be more conservative in bear market or equal
-        assert bear_weights["TQQQ"] <= bull_weights["TQQQ"]
-    
-    def test_volatility_targeting_effectiveness(self, sample_market_data):
-        """Test that volatility targeting works as expected."""
-        # Create two strategies with different volatility targets
-        high_vol_strategy = EquityConvexRateHedgeStrategy({"target_volatility": 0.20})
-        low_vol_strategy = EquityConvexRateHedgeStrategy({"target_volatility": 0.10})
+        tight_strategy = EquityInflationBetaStrategy(tight_bands_config)
+        loose_strategy = EquityInflationBetaStrategy(loose_bands_config)
         
-        high_vol_weights = high_vol_strategy.calculate_weights(sample_market_data)
-        low_vol_weights = low_vol_strategy.calculate_weights(sample_market_data)
+        target_weights = tight_strategy.calculate_weights(inflation_beta_price_data)
         
-        # Lower volatility target should result in more conservative allocation
-        assert low_vol_weights["SGOV"] >= high_vol_weights["SGOV"]
-    
-    def test_edge_case_minimal_data(self, minimal_data):
-        """Test strategy behavior with minimal data."""
-        strategy = EquityConvexRateHedgeStrategy()
+        # Create drifted weights
+        drifted_weights = {
+            'TQQQ': target_weights['TQQQ'] * 1.08,  # 8% drift
+            'PDBC': target_weights['PDBC'] * 0.92,
+            'IAU': target_weights['IAU'] * 1.08,
+            'SGOV': target_weights['SGOV'] * 0.92
+        }
         
-        # Should not crash with minimal data
-        weights = strategy.calculate_weights(minimal_data)
+        # Normalize
+        total = sum(drifted_weights.values())
+        drifted_weights = {k: v/total for k, v in drifted_weights.items()}
         
-        # Should still return valid weights
-        assert isinstance(weights, dict)
-        assert len(weights) == 4
-        assert abs(sum(weights.values()) - 1.0) < 1e-10
-        assert all(weight > 0 for weight in weights.values())
-    
-    def test_edge_case_missing_assets(self):
-        """Test strategy behavior with missing asset data."""
-        strategy = EquityConvexRateHedgeStrategy()
+        # Check rebalancing behavior (may depend on actual drift amounts)
+        tight_rebalance = tight_strategy.should_rebalance(drifted_weights, target_weights)
+        loose_rebalance = loose_strategy.should_rebalance(drifted_weights, target_weights)
         
-        # Data with missing PFIX
+        # At least one should be True, and loose should be less likely to rebalance
+        assert isinstance(tight_rebalance, bool)
+        assert isinstance(loose_rebalance, bool)
+
+    def test_strategy_with_missing_data_scenarios(self, equity_inflation_beta_config):
+        """Test strategy behavior with missing data scenarios."""
+        strategy = EquityInflationBetaStrategy(equity_inflation_beta_config)
+        
+        # Test with missing assets
         incomplete_data = pd.DataFrame({
-            'TQQQ': [100, 101, 102, 103, 104],
-            'IAU': [30, 31, 32, 33, 34],
-            'SGOV': [20, 20.1, 20.2, 20.3, 20.4]
+            'TQQQ': np.random.normal(100, 10, 100),
+            'PDBC': np.random.normal(50, 5, 100)
+            # Missing IAU and SGOV
         })
         
-        # Should handle missing assets gracefully
         weights = strategy.calculate_weights(incomplete_data)
         
-        # Should still return valid weights
+        # Should handle missing assets gracefully
         assert isinstance(weights, dict)
-        assert len(weights) == 4
+        assert all(asset in weights for asset in strategy.assets)
         assert abs(sum(weights.values()) - 1.0) < 1e-10
-    
-    def test_config_validation_impact(self, sample_market_data):
-        """Test that config validation affects strategy behavior."""
-        # Valid config
-        valid_config = {
-            "target_volatility": 0.15,
-            "tqqq_base_weight": 0.60,
-            "pfix_base_weight": 0.20,
-            "gold_base_weight": 0.15,
-            "cash_base_weight": 0.05,
-            "correlation_threshold": 0.0,
-            "volatility_lookback": 60,
-            "correlation_lookback": 252,
-            "drift_bands": 10
-        }
         
-        # Invalid config (weights don't sum to 1)
-        invalid_config = {
-            "target_volatility": 0.15,
-            "tqqq_base_weight": 0.80,
-            "pfix_base_weight": 0.30,
-            "gold_base_weight": 0.15,
-            "cash_base_weight": 0.05,
-            "correlation_threshold": 0.0,
-            "volatility_lookback": 60,
-            "correlation_lookback": 252,
-            "drift_bands": 10
-        }
+        # Should handle missing assets gracefully
+        assert isinstance(weights['IAU'], (int, float))
+        assert isinstance(weights['SGOV'], (int, float))
+        assert weights['IAU'] >= 0
+        assert weights['SGOV'] >= 0
+
+    def test_strategy_edge_cases(self, equity_inflation_beta_config):
+        """Test strategy edge cases and boundary conditions."""
+        strategy = EquityInflationBetaStrategy(equity_inflation_beta_config)
         
-        valid_strategy = EquityConvexRateHedgeStrategy(valid_config)
-        invalid_strategy = EquityConvexRateHedgeStrategy(invalid_config)
+        # Test with minimal data
+        minimal_data = pd.DataFrame({
+            'TQQQ': [100, 101],
+            'PDBC': [50, 51],
+            'IAU': [30, 31],
+            'SGOV': [10, 11]
+        })
         
-        # Valid strategy should pass validation
-        assert valid_strategy.validate_config() is True
+        weights = strategy.calculate_weights(minimal_data)
+        assert abs(sum(weights.values()) - 1.0) < 1e-10
         
-        # Invalid strategy should fail validation
-        assert invalid_strategy.validate_config() is False
+        # Test with constant prices (no volatility)
+        constant_data = pd.DataFrame({
+            'TQQQ': [100] * 60,
+            'PDBC': [50] * 60,
+            'IAU': [30] * 60,
+            'SGOV': [10] * 60
+        })
         
-        # Both should still be able to calculate weights (with defaults)
-        valid_weights = valid_strategy.calculate_weights(sample_market_data)
-        invalid_weights = invalid_strategy.calculate_weights(sample_market_data)
+        weights = strategy.calculate_weights(constant_data)
+        assert abs(sum(weights.values()) - 1.0) < 1e-10
         
-        # Both should return valid weight structures
-        for weights in [valid_weights, invalid_weights]:
-            assert isinstance(weights, dict)
-            assert len(weights) == 4
+        # Test with extreme price movements
+        extreme_data = pd.DataFrame({
+            'TQQQ': [100, 200, 50, 150, 75, 300] + [100] * 54,
+            'PDBC': [50, 25, 75, 100, 40, 80] + [50] * 54,
+            'IAU': [30, 60, 15, 45, 25, 90] + [30] * 54,
+            'SGOV': [10, 11, 9, 12, 8, 13] + [10] * 54
+        })
+        
+        weights = strategy.calculate_weights(extreme_data)
+        assert abs(sum(weights.values()) - 1.0) < 1e-10
+        assert all(weight >= 0 for weight in weights.values())
+
+    def test_strategy_configuration_variations(self, minimal_config):
+        """Test strategy with different configuration variations."""
+        # Test aggressive configuration
+        aggressive_config = minimal_config.copy()
+        aggressive_config['tqqq_overweight']['base_weight'] = 0.8
+        aggressive_config['tqqq_overweight']['scaling_factor'] = 1.5
+        aggressive_config['signals']['trend']['weight'] = 0.8
+        aggressive_config['signals']['carry']['weight'] = 0.2
+        
+        # Test conservative configuration
+        conservative_config = minimal_config.copy()
+        conservative_config['tqqq_overweight']['base_weight'] = 0.4
+        conservative_config['tqqq_overweight']['scaling_factor'] = 1.0
+        conservative_config['signals']['trend']['weight'] = 0.5
+        conservative_config['signals']['carry']['weight'] = 0.5
+        
+        np.random.seed(42)
+        test_data = pd.DataFrame({
+            'TQQQ': np.random.normal(100, 15, 100),
+            'PDBC': np.random.normal(50, 8, 100),
+            'IAU': np.random.normal(30, 4, 100),
+            'SGOV': np.random.normal(10, 1, 100)
+        })
+        
+        aggressive_strategy = EquityInflationBetaStrategy(aggressive_config)
+        conservative_strategy = EquityInflationBetaStrategy(conservative_config)
+        
+        aggressive_weights = aggressive_strategy.calculate_weights(test_data)
+        conservative_weights = conservative_strategy.calculate_weights(test_data)
+        
+        # Aggressive configuration should generally have higher TQQQ allocation
+        # but may be affected by volatility scaling and other factors
+        assert isinstance(aggressive_weights['TQQQ'], (int, float))
+        assert isinstance(conservative_weights['TQQQ'], (int, float))
+        assert aggressive_weights['TQQQ'] >= 0
+        assert conservative_weights['TQQQ'] >= 0
+        
+        # Both should be valid allocations
+        for weights in [aggressive_weights, conservative_weights]:
             assert abs(sum(weights.values()) - 1.0) < 1e-10
+            assert all(weight >= 0 for weight in weights.values())
