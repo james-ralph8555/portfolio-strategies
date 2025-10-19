@@ -15,6 +15,10 @@
           yfinance
           numpy
           scipy
+          pytest
+          pytest-cov
+          pytest-mock
+          pyyaml
         ]);
       in
       {

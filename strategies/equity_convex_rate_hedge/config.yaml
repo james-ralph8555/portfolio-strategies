@@ -1,0 +1,33 @@
+# Equity Convex Rate Hedge Strategy Configuration
+
+# Strategy metadata
+name: "equity_convex_rate_hedge"
+description: "TQQQ strategy with convex rate hedge using PFIX and gold diversification"
+assets: ["TQQQ", "PFIX", "IAU", "SGOV"]
+rebalance_frequency: "monthly"
+drift_bands: 10
+
+# Base allocation weights (should sum to 1.0)
+tqqq_base_weight: 0.60      # Core equity engine
+pfix_base_weight: 0.20      # Convex rate hedge
+gold_base_weight: 0.15      # Diversification, especially in stress
+cash_base_weight: 0.05      # Shock absorber
+
+# Volatility targeting
+target_volatility: 0.15     # 15% annualized volatility target
+volatility_lookback: 60     # Days for volatility calculation
+
+# Correlation regime switching
+correlation_threshold: 0.0  # Stock-bond correlation regime threshold
+correlation_lookback: 252   # Days for correlation calculation (1 year)
+
+# Risk management
+max_leverage: 2.0           # Maximum leverage factor
+min_cash_allocation: 0.05   # Minimum cash allocation
+
+# Asset descriptions
+asset_descriptions:
+  TQQQ: "ProShares UltraPro QQQ - 3x leveraged NASDAQ-100"
+  PFIX: "Simplify Interest Rate Hedge ETF - convex to rising rates"
+  IAU: "iShares Gold Trust - gold diversification"
+  SGOV: "iShares 0-3 Month Treasury Bond ETF - cash shock absorber"
