@@ -20,6 +20,9 @@
           pytest-mock
           pyyaml
           duckdb
+          # backend
+          uvicorn
+          fastapi
         ]);
       in
       {
