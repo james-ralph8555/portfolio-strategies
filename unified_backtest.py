@@ -222,6 +222,8 @@ class UnifiedBacktester:
 
         # Get market data for strategy assets
         assets = strategy.get_assets()
+        if not self.market_data_manager:
+            raise ValueError("Market data manager not available")
         price_data = self.market_data_manager.get_price_data(
             assets, start_date, end_date
         )
@@ -303,6 +305,7 @@ class UnifiedBacktester:
                         current_weights,
                         target_weights,
                         current_prices,
+                        date.strftime("%Y-%m-%d"),
                     )
                 )
 
@@ -357,6 +360,7 @@ class UnifiedBacktester:
         current_weights: dict[str, float],
         target_weights: dict[str, float],
         prices: pd.Series,
+        trade_date: str,
     ) -> tuple[float, float, dict[str, float], list[dict[str, Any]]]:
         """
         Execute rebalancing trades.
@@ -400,6 +404,7 @@ class UnifiedBacktester:
                         "quantity": abs(quantity),
                         "price": price,
                         "value": abs(trade_value),
+                        "trade_date": trade_date,
                     }
                     trades.append(trade)
 
@@ -420,6 +425,14 @@ class UnifiedBacktester:
             new_weights = {k: v / total_weight for k, v in new_weights.items()}
 
         return portfolio_value, cash, new_weights, trades
+
+    def _sanitize_float(self, value: float) -> float:
+        """Sanitize float values for JSON serialization."""
+        if value == float("inf") or value == float("-inf"):
+            return 999.0  # Large finite value
+        if value != value:  # Check for NaN
+            return 0.0
+        return value
 
     def _calculate_performance_metrics(
         self,
@@ -444,16 +457,35 @@ class UnifiedBacktester:
 
         # Basic return metrics
         total_return = (final_value / initial_value) - 1
-        annualized_return = (final_value / initial_value) ** (252 / len(returns)) - 1
+        annualized_return = (
+            (final_value / initial_value) ** (252 / len(returns)) - 1
+            if len(returns) > 0
+            and final_value != float("inf")
+            and final_value != float("-inf")
+            and initial_value != 0
+            else 0
+        )
         volatility = returns.std() * np.sqrt(252)
-        sharpe_ratio = annualized_return / volatility if volatility > 0 else 0
+        sharpe_ratio = (
+            annualized_return / volatility
+            if volatility > 0
+            and volatility != float("inf")
+            and volatility != float("-inf")
+            else 0
+        )
 
         # Drawdown metrics
         cumulative = (1 + returns).cumprod()
         running_max = cumulative.expanding().max()
         drawdown = (cumulative - running_max) / running_max
         max_drawdown = drawdown.min()
-        calmar_ratio = annualized_return / abs(max_drawdown) if max_drawdown != 0 else 0
+        calmar_ratio = (
+            annualized_return / abs(max_drawdown)
+            if max_drawdown != 0
+            and max_drawdown != float("inf")
+            and max_drawdown != float("-inf")
+            else 0
+        )
 
         # Trade metrics
         win_rate = float((returns > 0).mean())
@@ -466,20 +498,20 @@ class UnifiedBacktester:
         profit_factor = (
             positive_returns / negative_returns
             if negative_returns > 0
-            else float("inf")
+            else 999.0  # Use large finite value instead of inf for JSON compatibility
         )
 
         return {
-            "total_return": total_return,
-            "annualized_return": annualized_return,
-            "volatility": volatility,
-            "sharpe_ratio": sharpe_ratio,
-            "max_drawdown": max_drawdown,
-            "calmar_ratio": calmar_ratio,
-            "win_rate": win_rate,
-            "profit_factor": profit_factor,
-            "avg_trade_return": avg_trade_return,
-            "num_trades": num_trades,
+            "total_return": self._sanitize_float(total_return),
+            "annualized_return": self._sanitize_float(annualized_return),
+            "volatility": self._sanitize_float(volatility),
+            "sharpe_ratio": self._sanitize_float(sharpe_ratio),
+            "max_drawdown": self._sanitize_float(max_drawdown),
+            "calmar_ratio": self._sanitize_float(calmar_ratio),
+            "win_rate": self._sanitize_float(win_rate),
+            "profit_factor": self._sanitize_float(profit_factor),
+            "avg_trade_return": self._sanitize_float(avg_trade_return),
+            "num_trades": int(num_trades),
         }
 
     def _store_backtest_results(
@@ -546,23 +578,29 @@ class UnifiedBacktester:
 
         # Store trades
         for trade in results["trades"]:
-            self.results_conn.execute(
-                """
-                INSERT INTO trades (strategy_name, trade_date, symbol, action, quantity, price, value)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-                [
-                    strategy_name,
-                    trade["trade_date"]
-                    if "trade_date" in trade
-                    else results["start_date"],
-                    trade["symbol"],
-                    trade["action"],
-                    float(trade["quantity"]),
-                    float(trade["price"]),
-                    float(trade["value"]),
-                ],
-            )
+            trade_date = trade.get("trade_date", results["start_date"])
+            # Check if trade already exists
+            existing = self.results_conn.execute(
+                "SELECT 1 FROM trades WHERE strategy_name = ? AND trade_date = ? AND symbol = ? AND action = ?",
+                [strategy_name, trade_date, trade["symbol"], trade["action"]],
+            ).fetchone()
+
+            if not existing:
+                self.results_conn.execute(
+                    """
+                    INSERT INTO trades (strategy_name, trade_date, symbol, action, quantity, price, value)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                    [
+                        strategy_name,
+                        trade_date,
+                        trade["symbol"],
+                        trade["action"],
+                        float(trade["quantity"]),
+                        float(trade["price"]),
+                        float(trade["value"]),
+                    ],
+                )
 
     def run_all_strategies(
         self,

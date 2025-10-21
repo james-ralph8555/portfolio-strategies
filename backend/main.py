@@ -6,6 +6,7 @@ and viewing results from DuckDB databases.
 """
 
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
 
@@ -20,11 +21,38 @@ from unified_backtest import UnifiedBacktester
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Global instances
+market_data_manager: MarketDataManager | None = None
+backtester: UnifiedBacktester | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    global market_data_manager, backtester
+    try:
+        market_data_manager = MarketDataManager()
+        backtester = UnifiedBacktester()
+        logger.info("Backend services initialized successfully")
+        yield
+    except Exception as e:
+        logger.error(f"Failed to initialize backend services: {e}")
+        yield
+    finally:
+        # Shutdown
+        if market_data_manager:
+            market_data_manager.close()
+        if backtester:
+            backtester.close()
+        logger.info("Backend services shut down")
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Portfolio Management API",
     description="API for managing portfolio strategies, market data, and backtesting",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Add CORS middleware
@@ -38,10 +66,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Global instances
-market_data_manager: MarketDataManager | None = None
-backtester: UnifiedBacktester | None = None
 
 
 # WebSocket connection manager
@@ -104,29 +128,6 @@ class MarketDataResponse(BaseModel):
     symbols: list[str]
     data: dict[str, list[dict[str, Any]]]
     metadata: dict[str, Any]
-
-
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    global market_data_manager, backtester
-    try:
-        market_data_manager = MarketDataManager()
-        backtester = UnifiedBacktester()
-        logger.info("Backend services initialized successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize backend services: {e}")
-
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    global market_data_manager, backtester
-    if market_data_manager:
-        market_data_manager.close()
-    if backtester:
-        backtester.close()
-    logger.info("Backend services shut down")
 
 
 # Health check endpoint
@@ -201,13 +202,26 @@ async def run_backtest(request: BacktestRequest):
             request.initial_capital,
         )
 
+        # Sanitize metrics to ensure JSON compatibility
+        sanitized_metrics = {}
+        for key, value in results["metrics"].items():
+            if isinstance(value, float):
+                if value == float("inf") or value == float("-inf"):
+                    sanitized_metrics[key] = 999.0
+                elif value != value:  # Check for NaN
+                    sanitized_metrics[key] = 0.0
+                else:
+                    sanitized_metrics[key] = value
+            else:
+                sanitized_metrics[key] = value
+
         return BacktestResponse(
             strategy_name=results["strategy_name"],
             start_date=results["start_date"],
             end_date=results["end_date"],
             initial_capital=results["initial_capital"],
             final_value=results["final_value"],
-            metrics=results["metrics"],
+            metrics=sanitized_metrics,
             status="completed",
         )
     except Exception as e:
@@ -223,7 +237,16 @@ async def get_backtest_results():
 
     try:
         summary = backtester.get_results_summary()
-        return summary.to_dict(orient="records")
+        # Sanitize float values in the summary
+        summary_dict = summary.to_dict(orient="records")
+        for record in summary_dict:
+            for key, value in record.items():
+                if isinstance(value, float):
+                    if value == float("inf") or value == float("-inf"):
+                        record[key] = 999.0
+                    elif value != value:  # Check for NaN
+                        record[key] = 0.0
+        return summary_dict
     except Exception as e:
         logger.error(f"Error getting backtest results: {e}")
         raise HTTPException(
@@ -260,9 +283,29 @@ async def get_strategy_results(strategy_name: str):
             [strategy_name],
         ).fetchdf()
 
+        # Sanitize float values in the dataframes
+        portfolio_dict = portfolio_data.to_dict(orient="records")
+        trades_dict = trades_data.to_dict(orient="records")
+
+        for record in portfolio_dict:
+            for key, value in record.items():
+                if isinstance(value, float):
+                    if value == float("inf") or value == float("-inf"):
+                        record[key] = 999.0
+                    elif value != value:  # Check for NaN
+                        record[key] = 0.0
+
+        for record in trades_dict:
+            for key, value in record.items():
+                if isinstance(value, float):
+                    if value == float("inf") or value == float("-inf"):
+                        record[key] = 999.0
+                    elif value != value:  # Check for NaN
+                        record[key] = 0.0
+
         return {
-            "portfolio_values": portfolio_data.to_dict(orient="records"),
-            "trades": trades_data.to_dict(orient="records"),
+            "portfolio_values": portfolio_dict,
+            "trades": trades_dict,
         }
     except Exception as e:
         logger.error(f"Error getting strategy results: {e}")

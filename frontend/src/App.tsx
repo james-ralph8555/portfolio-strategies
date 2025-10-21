@@ -1,18 +1,12 @@
-import type { RouteSectionProps } from '@solidjs/router';
 import { Suspense } from 'solid-js';
-import Navbar from './components/Navbar';
+import UnifiedInterface from './pages/UnifiedInterface';
 import LoadingSpinner from './components/LoadingSpinner';
 
-function App(props: RouteSectionProps) {
+function App() {
   return (
-    <div class="min-h-screen bg-gray-50">
-      <Navbar />
-      <main class="container mx-auto px-4 py-8">
-        <Suspense fallback={<LoadingSpinner />}>
-          {props.children}
-        </Suspense>
-      </main>
-    </div>
+    <Suspense fallback={<LoadingSpinner />}>
+      <UnifiedInterface />
+    </Suspense>
   );
 }
 
