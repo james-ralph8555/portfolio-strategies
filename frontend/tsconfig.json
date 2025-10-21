@@ -12,8 +12,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "jsx-runtime",
+    "jsx": "preserve",
     "jsxImportSource": "solid-js",
+    "types": ["vite/client"],
 
     /* Linting */
     "strict": true,

@@ -166,3 +166,4 @@ package-lock.json
 yarn.lock
 
 backend/backtest_results/
+cache/

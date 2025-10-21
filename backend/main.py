@@ -290,10 +290,12 @@ async def get_strategy_results(strategy_name: str):
         # Get portfolio values for the strategy
         portfolio_data = backtester.results_conn.execute(
             """
-            SELECT date, portfolio_value, cash, weights
-            FROM portfolio_values
-            WHERE strategy_name = ?
-            ORDER BY date
+            SELECT pv.date, pv.portfolio_value, pv.cash, pv.weights
+            FROM portfolio_values pv
+            JOIN backtest_results br ON pv.backtest_result_id = br.id
+            JOIN strategies s ON br.strategy_id = s.id
+            WHERE s.name = ?
+            ORDER BY pv.date
             """,
             [strategy_name],
         ).fetchdf()
@@ -301,10 +303,12 @@ async def get_strategy_results(strategy_name: str):
         # Get trades for the strategy
         trades_data = backtester.results_conn.execute(
             """
-            SELECT trade_date, symbol, action, quantity, price, value
-            FROM trades
-            WHERE strategy_name = ?
-            ORDER BY trade_date
+            SELECT t.trade_date, t.symbol, t.action, t.quantity, t.price, t.value
+            FROM trades t
+            JOIN backtest_results br ON t.backtest_result_id = br.id
+            JOIN strategies s ON br.strategy_id = s.id
+            WHERE s.name = ?
+            ORDER BY t.trade_date
             """,
             [strategy_name],
         ).fetchdf()
@@ -351,20 +355,22 @@ async def get_strategy_traces(
     try:
         # Build query with optional date filters
         query = """
-            SELECT trace_timestamp, level, category, message, data
-            FROM backtest_traces
-            WHERE strategy_name = ?
+            SELECT bt.trace_timestamp, bt.level, bt.category, bt.message, bt.data
+            FROM backtest_traces bt
+            JOIN backtest_results br ON bt.backtest_result_id = br.id
+            JOIN strategies s ON br.strategy_id = s.id
+            WHERE s.name = ?
         """
         params = [strategy_name]
 
         if start_date:
-            query += " AND start_date = ?"
+            query += " AND br.start_date = ?"
             params.append(start_date)
         if end_date:
-            query += " AND end_date = ?"
+            query += " AND br.end_date = ?"
             params.append(end_date)
 
-        query += " ORDER BY trace_timestamp ASC"
+        query += " ORDER BY bt.trace_timestamp ASC"
 
         traces_data = backtester.results_conn.execute(query, params).fetchdf()
 
@@ -467,14 +473,15 @@ async def get_cached_symbols():
         # Get detailed symbol information from cache
         symbols_data = market_data_manager.cache.conn.execute("""
             SELECT
-                symbol,
-                MIN(date) as start_date,
-                MAX(date) as end_date,
+                s.symbol,
+                MIN(p.date) as start_date,
+                MAX(p.date) as end_date,
                 COUNT(*) as record_count,
-                MAX(created_at) as last_updated
-            FROM price_data
-            GROUP BY symbol
-            ORDER BY symbol
+                MAX(p.created_at) as last_updated
+            FROM price_data p
+            JOIN symbols s ON p.symbol_id = s.id
+            GROUP BY s.symbol
+            ORDER BY s.symbol
         """).fetchdf()
 
         # Convert to dict format for JSON response
@@ -511,7 +518,12 @@ async def get_cached_symbol_data(
         # If no date range provided, get all data for the symbol
         if not start_date or not end_date:
             date_range = market_data_manager.cache.conn.execute(
-                "SELECT MIN(date) as min_date, MAX(date) as max_date FROM price_data WHERE symbol = ?",
+                """
+                SELECT MIN(p.date) as min_date, MAX(p.date) as max_date
+                FROM price_data p
+                JOIN symbols s ON p.symbol_id = s.id
+                WHERE s.symbol = ?
+                """,
                 [symbol],
             ).fetchone()
 
@@ -524,11 +536,12 @@ async def get_cached_symbol_data(
         # Get the price data
         price_data = market_data_manager.cache.conn.execute(
             """
-            SELECT date, open, high, low, close, volume, adjusted_close
-            FROM price_data
-            WHERE symbol = ?
-            AND date BETWEEN ? AND ?
-            ORDER BY date
+            SELECT p.date, p.open, p.high, p.low, p.close, p.volume, p.adjusted_close
+            FROM price_data p
+            JOIN symbols s ON p.symbol_id = s.id
+            WHERE s.symbol = ?
+            AND p.date BETWEEN ? AND ?
+            ORDER BY p.date
         """,
             [symbol, start_date, end_date],
         ).fetchdf()

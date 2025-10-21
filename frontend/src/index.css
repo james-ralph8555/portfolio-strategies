@@ -2,14 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body, #root {
+  height: 100%;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+  font-size: 12px;
 
-  color-scheme: light;
-  color: #213547;
-  background-color: #ffffff;
+  color-scheme: dark;
+  color: #c7d0df;
+  background-color: #0f1115;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -18,28 +23,36 @@
   -webkit-text-size-adjust: 100%;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+/* Dockview density tweaks */
+.dockview-theme-dark {
+  --dv-theme-background: #0f1115;
+  --dv-activegroup-background: #0f1115;
+  --dv-inactivegroup-background: #0f1115;
+  --dv-tab-height: 24px;
+  --dv-separator-border: #2a2f3a;
 }
-a:hover {
-  color: #535bf2;
+
+/* AG Grid dense tuning */
+.ag-theme-quartz {
+  --ag-font-size: 11px;
+  --ag-grid-size: 2px;
+  --ag-list-item-height: 20px;
+  --ag-row-height: 26px;
+  --ag-header-height: 26px;
+  --ag-header-column-separator-color: #2a2f3a;
 }
 
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  letter-spacing: 0;
+  background-color: #0f1115;
+  color: #c7d0df;
 }
 
 #root {
+  height: 100%;
   width: 100%;
-  margin: 0 auto;
+  margin: 0;
   text-align: left;
 }

@@ -294,14 +294,16 @@ class MarketDataManager:
             Dictionary with cache information
         """
         try:
+            self.cache._ensure_connection()
             # Get basic cache statistics
             result = self.cache.conn.execute("""
                 SELECT
-                    COUNT(DISTINCT symbol) as unique_symbols,
+                    COUNT(DISTINCT s.symbol) as unique_symbols,
                     COUNT(*) as total_records,
-                    MIN(date) as earliest_date,
-                    MAX(date) as latest_date
-                FROM price_data
+                    MIN(p.date) as earliest_date,
+                    MAX(p.date) as latest_date
+                FROM price_data p
+                JOIN symbols s ON p.symbol_id = s.id
             """).fetchone()
 
             if result:

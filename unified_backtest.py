@@ -39,7 +39,7 @@ class UnifiedBacktester:
 
         # Initialize results database
         if results_db_path is None:
-            results_dir = Path("backtest_results")
+            results_dir = Path("cache")
             results_dir.mkdir(exist_ok=True)
             results_db_path = str(results_dir / "backtest_results.duckdb")
 
@@ -71,11 +71,37 @@ class UnifiedBacktester:
 
     def _initialize_results_db(self) -> None:
         """Initialize the results database schema."""
+        # Create sequences for autoincrementing primary keys
+        self.results_conn.execute(
+            "CREATE SEQUENCE IF NOT EXISTS backtest_results_id_seq START 1"
+        )
+        self.results_conn.execute(
+            "CREATE SEQUENCE IF NOT EXISTS portfolio_values_id_seq START 1"
+        )
+        self.results_conn.execute("CREATE SEQUENCE IF NOT EXISTS trades_id_seq START 1")
+        self.results_conn.execute(
+            "CREATE SEQUENCE IF NOT EXISTS backtest_traces_id_seq START 1"
+        )
+        self.results_conn.execute(
+            "CREATE SEQUENCE IF NOT EXISTS strategies_id_seq START 1"
+        )
+
+        # Create strategies table for proper foreign key relationships
+        self.results_conn.execute("""
+            CREATE TABLE IF NOT EXISTS strategies (
+                id BIGINT PRIMARY KEY DEFAULT nextval('strategies_id_seq'),
+                name VARCHAR UNIQUE NOT NULL,
+                description VARCHAR,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         self.results_conn.execute("""
             CREATE TABLE IF NOT EXISTS backtest_results (
-                strategy_name VARCHAR,
-                start_date DATE,
-                end_date DATE,
+                id BIGINT PRIMARY KEY DEFAULT nextval('backtest_results_id_seq'),
+                strategy_id BIGINT NOT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NOT NULL,
                 total_return FLOAT,
                 annualized_return FLOAT,
                 volatility FLOAT,
@@ -87,62 +113,66 @@ class UnifiedBacktester:
                 avg_trade_return FLOAT,
                 num_trades INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (strategy_name, start_date, end_date)
+                FOREIGN KEY (strategy_id) REFERENCES strategies(id),
+                UNIQUE(strategy_id, start_date, end_date)
             )
         """)
 
         self.results_conn.execute("""
             CREATE TABLE IF NOT EXISTS portfolio_values (
-                strategy_name VARCHAR,
-                date DATE,
+                id BIGINT PRIMARY KEY DEFAULT nextval('portfolio_values_id_seq'),
+                backtest_result_id BIGINT NOT NULL,
+                date DATE NOT NULL,
                 portfolio_value FLOAT,
                 cash FLOAT,
                 weights VARCHAR,  -- JSON string
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (strategy_name, date)
+                FOREIGN KEY (backtest_result_id) REFERENCES backtest_results(id),
+                UNIQUE(backtest_result_id, date)
             )
         """)
 
         self.results_conn.execute("""
             CREATE TABLE IF NOT EXISTS trades (
-                strategy_name VARCHAR,
-                trade_date DATE,
-                symbol VARCHAR,
-                action VARCHAR,  -- 'BUY' or 'SELL'
+                id BIGINT PRIMARY KEY DEFAULT nextval('trades_id_seq'),
+                backtest_result_id BIGINT NOT NULL,
+                trade_date DATE NOT NULL,
+                symbol VARCHAR NOT NULL,
+                action VARCHAR NOT NULL,  -- 'BUY' or 'SELL'
                 quantity FLOAT,
                 price FLOAT,
                 value FLOAT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (strategy_name, trade_date, symbol, action)
+                FOREIGN KEY (backtest_result_id) REFERENCES backtest_results(id)
             )
         """)
 
         self.results_conn.execute("""
             CREATE TABLE IF NOT EXISTS backtest_traces (
-                strategy_name VARCHAR,
-                start_date DATE,
-                end_date DATE,
+                id BIGINT PRIMARY KEY DEFAULT nextval('backtest_traces_id_seq'),
+                backtest_result_id BIGINT NOT NULL,
                 trace_timestamp TIMESTAMP,
                 level VARCHAR,  -- 'DEBUG', 'INFO', 'WARNING', 'ERROR'
                 category VARCHAR,  -- 'REBALANCE', 'WEIGHT_CALC', 'PORTFOLIO', 'TRADE', 'PERFORMANCE'
                 message TEXT,
                 data JSON,  -- Additional structured data
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (backtest_result_id) REFERENCES backtest_results(id)
             )
         """)
 
         # Create indexes for better performance
         self.results_conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_backtest_strategy_dates ON backtest_results(strategy_name, start_date, end_date)"
+            "CREATE INDEX IF NOT EXISTS idx_backtest_strategy_dates ON backtest_results(strategy_id, start_date, end_date)"
         )
         self.results_conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_portfolio_strategy_date ON portfolio_values(strategy_name, date)"
+            "CREATE INDEX IF NOT EXISTS idx_portfolio_backtest_date ON portfolio_values(backtest_result_id, date)"
         )
         self.results_conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_trades_strategy_date ON trades(strategy_name, trade_date)"
+            "CREATE INDEX IF NOT EXISTS idx_trades_backtest_date ON trades(backtest_result_id, trade_date)"
         )
         self.results_conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_traces_strategy_date ON backtest_traces(strategy_name, start_date, end_date)"
+            "CREATE INDEX IF NOT EXISTS idx_traces_backtest_date ON backtest_traces(backtest_result_id, trace_timestamp)"
         )
         self.results_conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_traces_timestamp ON backtest_traces(trace_timestamp)"
@@ -263,17 +293,46 @@ class UnifiedBacktester:
         try:
             import json
 
+            # Get strategy_id
+            strategy_row = self.results_conn.execute(
+                "SELECT id FROM strategies WHERE name = ?", [strategy_name]
+            ).fetchone()
+
+            if not strategy_row:
+                # Create strategy if it doesn't exist
+                self.results_conn.execute(
+                    "INSERT OR IGNORE INTO strategies (name) VALUES (?)",
+                    [strategy_name],
+                )
+                strategy_row = self.results_conn.execute(
+                    "SELECT id FROM strategies WHERE name = ?", [strategy_name]
+                ).fetchone()
+
+            if not strategy_row:
+                return  # Skip logging if we can't find/create strategy
+
+            strategy_id = strategy_row[0]
+
+            # Get backtest_result_id
+            backtest_result_row = self.results_conn.execute(
+                "SELECT id FROM backtest_results WHERE strategy_id = ? AND start_date = ? AND end_date = ?",
+                [strategy_id, start_date, end_date],
+            ).fetchone()
+
+            if not backtest_result_row:
+                return  # Skip logging if backtest result doesn't exist yet
+
+            backtest_result_id = backtest_result_row[0]
+
             sanitized_data = self._sanitize_for_json(data) if data else None
             self.results_conn.execute(
                 """
                 INSERT INTO backtest_traces
-                (strategy_name, start_date, end_date, trace_timestamp, level, category, message, data)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (backtest_result_id, trace_timestamp, level, category, message, data)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 [
-                    strategy_name,
-                    start_date,
-                    end_date,
+                    backtest_result_id,
                     pd.Timestamp.now(),
                     level,
                     category,
@@ -700,25 +759,42 @@ class UnifiedBacktester:
         self, strategy_name: str, results: dict[str, Any]
     ) -> None:
         """Store backtest results in the database."""
+        # Ensure strategy exists in strategies table
+        self.results_conn.execute(
+            "INSERT OR IGNORE INTO strategies (name) VALUES (?)", [strategy_name]
+        )
+
+        # Get strategy_id
+        strategy_row = self.results_conn.execute(
+            "SELECT id FROM strategies WHERE name = ?", [strategy_name]
+        ).fetchone()
+
+        if not strategy_row:
+            raise ValueError(f"Failed to create or find strategy: {strategy_name}")
+
+        strategy_id = strategy_row[0]
+
         # Store summary metrics
         metrics = results["metrics"]
         # Check if result already exists
         existing = self.results_conn.execute(
-            "SELECT 1 FROM backtest_results WHERE strategy_name = ? AND start_date = ? AND end_date = ?",
-            [strategy_name, results["start_date"], results["end_date"]],
+            "SELECT id FROM backtest_results WHERE strategy_id = ? AND start_date = ? AND end_date = ?",
+            [strategy_id, results["start_date"], results["end_date"]],
         ).fetchone()
 
+        backtest_result_id = None
         if not existing:
+            # Insert new backtest result
             self.results_conn.execute(
                 """
                 INSERT INTO backtest_results (
-                    strategy_name, start_date, end_date, total_return,
+                    strategy_id, start_date, end_date, total_return,
                     annualized_return, volatility, sharpe_ratio, max_drawdown,
                     calmar_ratio, win_rate, profit_factor, avg_trade_return, num_trades
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
-                    strategy_name,
+                    strategy_id,
                     results["start_date"],
                     results["end_date"],
                     float(metrics["total_return"]),
@@ -734,55 +810,65 @@ class UnifiedBacktester:
                 ],
             )
 
-        # Store portfolio values
-        portfolio_df = results["portfolio_values"]
-        for date, row in portfolio_df.iterrows():
-            # Check if record already exists
-            existing = self.results_conn.execute(
-                "SELECT 1 FROM portfolio_values WHERE strategy_name = ? AND date = ?",
-                [strategy_name, date],
+            # Get the backtest_result_id
+            backtest_result_row = self.results_conn.execute(
+                "SELECT id FROM backtest_results WHERE strategy_id = ? AND start_date = ? AND end_date = ?",
+                [strategy_id, results["start_date"], results["end_date"]],
             ).fetchone()
+            backtest_result_id = backtest_result_row[0] if backtest_result_row else None
+        else:
+            backtest_result_id = existing[0]
 
-            if not existing:
-                self.results_conn.execute(
-                    """
-                    INSERT INTO portfolio_values (strategy_name, date, portfolio_value, cash, weights)
-                    VALUES (?, ?, ?, ?, ?)
+        if backtest_result_id:
+            # Store portfolio values
+            portfolio_df = results["portfolio_values"]
+            for date, row in portfolio_df.iterrows():
+                # Check if record already exists
+                existing = self.results_conn.execute(
+                    "SELECT 1 FROM portfolio_values WHERE backtest_result_id = ? AND date = ?",
+                    [backtest_result_id, date],
+                ).fetchone()
+
+                if not existing:
+                    self.results_conn.execute(
+                        """
+                        INSERT INTO portfolio_values (backtest_result_id, date, portfolio_value, cash, weights)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        [
+                            backtest_result_id,
+                            date,
+                            float(row["portfolio_value"]),
+                            float(row["cash"]),
+                            str(row["weights"]),  # Convert dict to string for storage
+                        ],
+                    )
+
+            # Store trades
+            for trade in results["trades"]:
+                trade_date = trade.get("trade_date", results["start_date"])
+                # Check if trade already exists
+                existing = self.results_conn.execute(
+                    "SELECT 1 FROM trades WHERE backtest_result_id = ? AND trade_date = ? AND symbol = ? AND action = ?",
+                    [backtest_result_id, trade_date, trade["symbol"], trade["action"]],
+                ).fetchone()
+
+                if not existing:
+                    self.results_conn.execute(
+                        """
+                        INSERT INTO trades (backtest_result_id, trade_date, symbol, action, quantity, price, value)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    [
-                        strategy_name,
-                        date,
-                        float(row["portfolio_value"]),
-                        float(row["cash"]),
-                        str(row["weights"]),  # Convert dict to string for storage
-                    ],
-                )
-
-        # Store trades
-        for trade in results["trades"]:
-            trade_date = trade.get("trade_date", results["start_date"])
-            # Check if trade already exists
-            existing = self.results_conn.execute(
-                "SELECT 1 FROM trades WHERE strategy_name = ? AND trade_date = ? AND symbol = ? AND action = ?",
-                [strategy_name, trade_date, trade["symbol"], trade["action"]],
-            ).fetchone()
-
-            if not existing:
-                self.results_conn.execute(
-                    """
-                    INSERT INTO trades (strategy_name, trade_date, symbol, action, quantity, price, value)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                    [
-                        strategy_name,
-                        trade_date,
-                        trade["symbol"],
-                        trade["action"],
-                        float(trade["quantity"]),
-                        float(trade["price"]),
-                        float(trade["value"]),
-                    ],
-                )
+                        [
+                            backtest_result_id,
+                            trade_date,
+                            trade["symbol"],
+                            trade["action"],
+                            float(trade["quantity"]),
+                            float(trade["price"]),
+                            float(trade["value"]),
+                        ],
+                    )
 
     def run_all_strategies(
         self,
@@ -822,21 +908,22 @@ class UnifiedBacktester:
         try:
             return self.results_conn.execute("""
                 SELECT
-                    strategy_name,
-                    start_date,
-                    end_date,
-                    total_return,
-                    annualized_return,
-                    volatility,
-                    sharpe_ratio,
-                    max_drawdown,
-                    calmar_ratio,
-                    win_rate,
-                    profit_factor,
-                    num_trades,
-                    created_at
-                FROM backtest_results
-                ORDER BY strategy_name, start_date DESC
+                    s.name as strategy_name,
+                    br.start_date,
+                    br.end_date,
+                    br.total_return,
+                    br.annualized_return,
+                    br.volatility,
+                    br.sharpe_ratio,
+                    br.max_drawdown,
+                    br.calmar_ratio,
+                    br.win_rate,
+                    br.profit_factor,
+                    br.num_trades,
+                    br.created_at
+                FROM backtest_results br
+                JOIN strategies s ON br.strategy_id = s.id
+                ORDER BY s.name, br.start_date DESC
             """).fetchdf()
         except Exception as e:
             self.logger.error(f"Error getting results summary: {e}")
@@ -857,18 +944,19 @@ class UnifiedBacktester:
             return self.results_conn.execute(
                 """
                 SELECT
-                    strategy_name,
-                    total_return,
-                    annualized_return,
-                    volatility,
-                    sharpe_ratio,
-                    max_drawdown,
-                    calmar_ratio,
-                    win_rate,
-                    profit_factor
-                FROM backtest_results
-                WHERE start_date = ? AND end_date = ?
-                ORDER BY sharpe_ratio DESC
+                    s.name as strategy_name,
+                    br.total_return,
+                    br.annualized_return,
+                    br.volatility,
+                    br.sharpe_ratio,
+                    br.max_drawdown,
+                    br.calmar_ratio,
+                    br.win_rate,
+                    br.profit_factor
+                FROM backtest_results br
+                JOIN strategies s ON br.strategy_id = s.id
+                WHERE br.start_date = ? AND br.end_date = ?
+                ORDER BY br.sharpe_ratio DESC
             """,
                 [start_date, end_date],
             ).fetchdf()

@@ -1,11 +1,11 @@
 import { Suspense } from 'solid-js';
-import UnifiedInterface from './pages/UnifiedInterface';
+import Terminal from './terminal/Terminal';
 import LoadingSpinner from './components/LoadingSpinner';
 
 function App() {
   return (
     <Suspense fallback={<LoadingSpinner />}>
-      <UnifiedInterface />
+      <Terminal />
     </Suspense>
   );
 }

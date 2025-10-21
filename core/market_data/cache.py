@@ -30,7 +30,7 @@ class DataCache:
             cache_duration_days: Number of days to cache data before refresh
         """
         if cache_path is None:
-            cache_dir = Path.home() / ".portfolio_cache"
+            cache_dir = Path("cache")
             cache_dir.mkdir(exist_ok=True)
             cache_path = str(cache_dir / "market_data.duckdb")
 
@@ -39,31 +39,24 @@ class DataCache:
         self.conn = duckdb.connect(self.cache_path)
         self._initialize_cache()
 
+    def _ensure_connection(self) -> None:
+        """Ensure database connection is available."""
+        if not self.conn:
+            self.conn = duckdb.connect(self.cache_path)
+
     def _initialize_cache(self) -> None:
         """Initialize the cache database and create tables if needed."""
-        self.conn = duckdb.connect(self.cache_path)
+        self._ensure_connection()
 
-        # Create tables for different data types
-        self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS price_data (
-                symbol VARCHAR,
-                date DATE,
-                open FLOAT,
-                high FLOAT,
-                low FLOAT,
-                close FLOAT,
-                volume BIGINT,
-                adjusted_close FLOAT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (symbol, date)
-            )
-        """)
+        # Create sequences for autoincrementing primary keys
+        self.conn.execute("CREATE SEQUENCE IF NOT EXISTS symbols_id_seq START 1")
+        self.conn.execute("CREATE SEQUENCE IF NOT EXISTS price_data_id_seq START 1")
 
-        # Drop and recreate metadata table to ensure correct structure
-        self.conn.execute("DROP TABLE IF EXISTS metadata")
+        # Create symbols table for proper foreign key relationships
         self.conn.execute("""
-            CREATE TABLE metadata (
-                symbol VARCHAR PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS symbols (
+                id BIGINT PRIMARY KEY DEFAULT nextval('symbols_id_seq'),
+                symbol VARCHAR UNIQUE NOT NULL,
                 name VARCHAR,
                 sector VARCHAR,
                 industry VARCHAR,
@@ -71,16 +64,38 @@ class DataCache:
                 currency VARCHAR,
                 exchange VARCHAR,
                 country VARCHAR,
-                timezone VARCHAR
+                timezone VARCHAR,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Create tables for different data types
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS price_data (
+                id BIGINT PRIMARY KEY DEFAULT nextval('price_data_id_seq'),
+                symbol_id BIGINT NOT NULL,
+                date DATE NOT NULL,
+                open FLOAT,
+                high FLOAT,
+                low FLOAT,
+                close FLOAT,
+                volume BIGINT,
+                adjusted_close FLOAT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (symbol_id) REFERENCES symbols(id),
+                UNIQUE(symbol_id, date)
             )
         """)
 
         # Create indexes for better performance
         self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_price_symbol_date ON price_data(symbol, date)"
+            "CREATE INDEX IF NOT EXISTS idx_price_symbol_date ON price_data(symbol_id, date)"
         )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_price_created_at ON price_data(created_at)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_symbols_symbol ON symbols(symbol)"
         )
 
     def get_price_data(
@@ -97,16 +112,19 @@ class DataCache:
         Returns:
             DataFrame with price data, empty if not found or expired
         """
+        self._ensure_connection()
+
         if not self._is_cache_valid(symbols, start_date, end_date):
             return pd.DataFrame()
 
         placeholders = ",".join(["?" for _ in symbols])
         query = f"""
-            SELECT symbol, date, open, high, low, close, volume, adjusted_close
-            FROM price_data
-            WHERE symbol IN ({placeholders})
-            AND date BETWEEN ? AND ?
-            ORDER BY symbol, date
+            SELECT s.symbol, p.date, p.open, p.high, p.low, p.close, p.volume, p.adjusted_close
+            FROM price_data p
+            JOIN symbols s ON p.symbol_id = s.id
+            WHERE s.symbol IN ({placeholders})
+            AND p.date BETWEEN ? AND ?
+            ORDER BY s.symbol, p.date
         """
 
         try:
@@ -134,8 +152,16 @@ class DataCache:
             data: DataFrame with price data (indexed by date, columns are symbols)
             symbols: List of ticker symbols
         """
+        self._ensure_connection()
+
         if data.empty:
             return
+
+        # Ensure all symbols exist in symbols table
+        for symbol in symbols:
+            self.conn.execute(
+                "INSERT OR IGNORE INTO symbols (symbol) VALUES (?)", [symbol]
+            )
 
         # Convert to long format for storage
         long_data = []
@@ -168,15 +194,24 @@ class DataCache:
             self.conn.execute(
                 f"""
                 DELETE FROM price_data
-                WHERE symbol IN ({placeholders})
-                AND date BETWEEN ? AND ?
+                USING symbols s
+                WHERE price_data.symbol_id = s.id
+                AND s.symbol IN ({placeholders})
+                AND price_data.date BETWEEN ? AND ?
             """,
                 symbols + [min_date, max_date],
             )
 
-            # Insert new data
+            # Insert new data using subquery to get symbol_id
             self.conn.execute(
-                "INSERT OR REPLACE INTO price_data SELECT * FROM df_to_store"
+                f"""
+                INSERT INTO price_data (symbol_id, date, open, high, low, close, volume, adjusted_close, created_at)
+                SELECT s.id, t.date, t.open, t.high, t.low, t.close, t.volume, t.adjusted_close, t.created_at
+                FROM df_to_store t
+                JOIN symbols s ON t.symbol = s.symbol
+                WHERE s.symbol IN ({placeholders})
+            """,
+                symbols,
             )
 
     def get_metadata(self, symbol: str) -> dict[str, Any]:
@@ -189,9 +224,11 @@ class DataCache:
         Returns:
             Dictionary with metadata, empty if not found
         """
+        self._ensure_connection()
+
         try:
             result = self.conn.execute(
-                "SELECT * FROM metadata WHERE symbol = ?", [symbol]
+                "SELECT * FROM symbols WHERE symbol = ?", [symbol]
             ).fetchdf()
 
             if not result.empty:
@@ -209,7 +246,7 @@ class DataCache:
             symbol: Ticker symbol
             metadata: Dictionary with metadata
         """
-        # Only store the columns that exist in the table
+        self._ensure_connection()
 
         # Filter metadata to only include valid columns
         filtered_metadata = {
@@ -225,9 +262,21 @@ class DataCache:
         }
 
         try:
-            pd.DataFrame([filtered_metadata])
             self.conn.execute(
-                "INSERT OR REPLACE INTO metadata SELECT * FROM df_metadata"
+                "INSERT OR REPLACE INTO symbols VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    filtered_metadata["symbol"],
+                    filtered_metadata["name"],
+                    filtered_metadata["sector"],
+                    filtered_metadata["industry"],
+                    filtered_metadata["market_cap"],
+                    filtered_metadata["currency"],
+                    filtered_metadata["exchange"],
+                    filtered_metadata["country"],
+                    filtered_metadata["timezone"],
+                    datetime.now(),
+                    datetime.now(),
+                ],
             )
         except Exception as e:
             print(f"Error storing metadata: {e}")
@@ -246,14 +295,17 @@ class DataCache:
         Returns:
             True if cache is valid, False otherwise
         """
+        self._ensure_connection()
+
         try:
             placeholders = ",".join(["?" for _ in symbols])
             result = self.conn.execute(
                 f"""
-                SELECT MAX(created_at) as max_created_at
-                FROM price_data
-                WHERE symbol IN ({placeholders})
-                AND date BETWEEN ? AND ?
+                SELECT MAX(p.created_at) as max_created_at
+                FROM price_data p
+                JOIN symbols s ON p.symbol_id = s.id
+                WHERE s.symbol IN ({placeholders})
+                AND p.date BETWEEN ? AND ?
             """,
                 symbols + [start_date, end_date],
             ).fetchone()
@@ -274,23 +326,33 @@ class DataCache:
         Args:
             symbols: List of symbols to clear, if None clears all
         """
+        self._ensure_connection()
+
         try:
             if symbols:
                 placeholders = ",".join(["?" for _ in symbols])
                 self.conn.execute(
-                    f"DELETE FROM price_data WHERE symbol IN ({placeholders})", symbols
+                    f"""
+                    DELETE FROM price_data
+                    USING symbols s
+                    WHERE price_data.symbol_id = s.id
+                    AND s.symbol IN ({placeholders})
+                """,
+                    symbols,
                 )
                 self.conn.execute(
-                    f"DELETE FROM metadata WHERE symbol IN ({placeholders})", symbols
+                    f"DELETE FROM symbols WHERE symbol IN ({placeholders})", symbols
                 )
             else:
                 self.conn.execute("DELETE FROM price_data")
-                self.conn.execute("DELETE FROM metadata")
+                self.conn.execute("DELETE FROM symbols")
         except Exception as e:
             print(f"Error clearing cache: {e}")
 
     def cleanup_expired_data(self) -> None:
         """Remove expired data from cache."""
+        self._ensure_connection()
+
         try:
             cutoff_date = datetime.now() - self.cache_duration
             self.conn.execute(
