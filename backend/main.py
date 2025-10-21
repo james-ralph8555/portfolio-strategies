@@ -26,6 +26,32 @@ market_data_manager: MarketDataManager | None = None
 backtester: UnifiedBacktester | None = None
 
 
+def _sanitize_for_json(obj: Any) -> Any:
+    """Sanitize object for JSON serialization by handling inf/NaN values."""
+    import math
+
+    import numpy as np
+
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        if math.isinf(obj) or math.isnan(obj):
+            return 0.0 if math.isnan(obj) else 999999999.0  # Large finite value for inf
+        return float(obj)
+    elif isinstance(obj, float):
+        if math.isinf(obj) or math.isnan(obj):
+            return 0.0 if math.isnan(obj) else 999999999.0  # Large finite value for inf
+        return obj
+    elif isinstance(obj, np.ndarray):
+        return [_sanitize_for_json(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_for_json(item) for item in obj]
+    else:
+        return obj
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -311,6 +337,63 @@ async def get_strategy_results(strategy_name: str):
         logger.error(f"Error getting strategy results: {e}")
         raise HTTPException(
             status_code=500, detail=f"Error getting strategy results: {e}"
+        ) from e
+
+
+@app.get("/backtest/traces/{strategy_name}")
+async def get_strategy_traces(
+    strategy_name: str, start_date: str | None = None, end_date: str | None = None
+):
+    """Get trace logs for a specific strategy."""
+    if not backtester:
+        raise HTTPException(status_code=500, detail="Backtester not initialized")
+
+    try:
+        # Build query with optional date filters
+        query = """
+            SELECT trace_timestamp, level, category, message, data
+            FROM backtest_traces
+            WHERE strategy_name = ?
+        """
+        params = [strategy_name]
+
+        if start_date:
+            query += " AND start_date = ?"
+            params.append(start_date)
+        if end_date:
+            query += " AND end_date = ?"
+            params.append(end_date)
+
+        query += " ORDER BY trace_timestamp ASC"
+
+        traces_data = backtester.results_conn.execute(query, params).fetchdf()
+
+        # Convert to dict format
+        traces_dict = traces_data.to_dict(orient="records")
+
+        # Parse JSON data for each trace and sanitize
+        for trace in traces_dict:
+            # Convert timestamp to string for JSON compatibility
+            if "trace_timestamp" in trace and trace["trace_timestamp"]:
+                trace["trace_timestamp"] = str(trace["trace_timestamp"])
+
+            if trace.get("data"):
+                try:
+                    import json
+
+                    trace["data"] = json.loads(trace["data"])
+                    # Sanitize the data to handle inf/NaN values
+                    trace["data"] = _sanitize_for_json(trace["data"])
+                except Exception:
+                    trace["data"] = {}
+            else:
+                trace["data"] = {}
+
+        return {"traces": traces_dict}
+    except Exception as e:
+        logger.error(f"Error getting strategy traces: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error getting strategy traces: {e}"
         ) from e
 
 

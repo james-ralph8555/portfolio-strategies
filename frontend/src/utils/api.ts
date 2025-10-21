@@ -73,6 +73,15 @@ class ApiClient {
     return this.request<StrategyResults>(`/backtest/results/${strategyName}`);
   }
 
+  async getStrategyTraces(strategyName: string, startDate?: string, endDate?: string): Promise<{ traces: any[] }> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
+    const queryString = params.toString();
+    return this.request<{ traces: any[] }>(`/backtest/traces/${strategyName}${queryString ? `?${queryString}` : ''}`);
+  }
+
   async runAllStrategies(startDate: string, endDate: string, initialCapital: number = 100000): Promise<Record<string, any>> {
     const params = new URLSearchParams({
       start_date: startDate,

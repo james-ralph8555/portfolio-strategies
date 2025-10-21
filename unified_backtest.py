@@ -117,6 +117,20 @@ class UnifiedBacktester:
             )
         """)
 
+        self.results_conn.execute("""
+            CREATE TABLE IF NOT EXISTS backtest_traces (
+                strategy_name VARCHAR,
+                start_date DATE,
+                end_date DATE,
+                trace_timestamp TIMESTAMP,
+                level VARCHAR,  -- 'DEBUG', 'INFO', 'WARNING', 'ERROR'
+                category VARCHAR,  -- 'REBALANCE', 'WEIGHT_CALC', 'PORTFOLIO', 'TRADE', 'PERFORMANCE'
+                message TEXT,
+                data JSON,  -- Additional structured data
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # Create indexes for better performance
         self.results_conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_backtest_strategy_dates ON backtest_results(strategy_name, start_date, end_date)"
@@ -126,6 +140,12 @@ class UnifiedBacktester:
         )
         self.results_conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_trades_strategy_date ON trades(strategy_name, trade_date)"
+        )
+        self.results_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_traces_strategy_date ON backtest_traces(strategy_name, start_date, end_date)"
+        )
+        self.results_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_traces_timestamp ON backtest_traces(trace_timestamp)"
         )
 
     def _load_all_strategies(self) -> dict[str, Any]:
@@ -193,6 +213,77 @@ class UnifiedBacktester:
 
         return strategies
 
+    def _initialize_backtest_trace(
+        self, strategy_name: str, start_date: str, end_date: str
+    ) -> str:
+        """Initialize trace logging for a backtest run."""
+        trace_id = f"{strategy_name}_{start_date}_{end_date}_{int(pd.Timestamp.now().timestamp())}"
+
+        # Log initialization
+        self._log_trace_event(
+            strategy_name,
+            start_date,
+            end_date,
+            "INFO",
+            "BACKTEST",
+            f"Starting backtest for {strategy_name}",
+            {"trace_id": trace_id, "initial_capital": 100000.0},
+        )
+
+        return trace_id
+
+    def _sanitize_for_json(self, obj: Any) -> Any:
+        """Sanitize object for JSON serialization."""
+        import numpy as np
+
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {k: self._sanitize_for_json(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._sanitize_for_json(item) for item in obj]
+        else:
+            return obj
+
+    def _log_trace_event(
+        self,
+        strategy_name: str,
+        start_date: str,
+        end_date: str,
+        level: str,
+        category: str,
+        message: str,
+        data: dict[str, Any] | None = None,
+    ) -> None:
+        """Log a trace event for the backtest."""
+        try:
+            import json
+
+            sanitized_data = self._sanitize_for_json(data) if data else None
+            self.results_conn.execute(
+                """
+                INSERT INTO backtest_traces
+                (strategy_name, start_date, end_date, trace_timestamp, level, category, message, data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    strategy_name,
+                    start_date,
+                    end_date,
+                    pd.Timestamp.now(),
+                    level,
+                    category,
+                    message,
+                    json.dumps(sanitized_data) if sanitized_data else None,
+                ],
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to log trace event: {e}")
+
     def run_backtest(
         self,
         strategy_name: str,
@@ -230,6 +321,9 @@ class UnifiedBacktester:
 
         if price_data.empty:
             raise ValueError(f"No price data available for assets {assets}")
+
+        # Initialize trace logging for this backtest
+        self._initialize_backtest_trace(strategy_name, start_date, end_date)
 
         # Run the backtest simulation
         results = self._simulate_backtest(
@@ -269,6 +363,18 @@ class UnifiedBacktester:
         cash = initial_capital
         portfolio_value = initial_capital
 
+        # Initialize trace logging for this backtest
+        strategy_name = strategy.get_name()
+        self._log_trace_event(
+            strategy_name,
+            start_date,
+            end_date,
+            "INFO",
+            "PORTFOLIO",
+            f"Initializing portfolio with ${initial_capital:,.2f}",
+            {"initial_capital": initial_capital, "assets": strategy.get_assets()},
+        )
+
         # Get rebalancing frequency (currently unused but kept for future implementation)
         # rebalance_freq = strategy.rebalance_frequency
         # drift_bands = getattr(strategy, "drift_bands", 10) / 100
@@ -286,6 +392,18 @@ class UnifiedBacktester:
 
             if i == 0:  # First day - always rebalance
                 should_rebalance = True
+                self._log_trace_event(
+                    strategy_name,
+                    start_date,
+                    end_date,
+                    "INFO",
+                    "REBALANCE",
+                    f"First day rebalancing on {date.strftime('%Y-%m-%d')}",
+                    {
+                        "date": date.strftime("%Y-%m-%d"),
+                        "portfolio_value": portfolio_value,
+                    },
+                )
             else:
                 # Check drift bands
                 target_weights = strategy.calculate_weights(price_data.loc[:date])
@@ -293,9 +411,39 @@ class UnifiedBacktester:
                     current_weights, target_weights
                 )
 
+                if should_rebalance:
+                    self._log_trace_event(
+                        strategy_name,
+                        start_date,
+                        end_date,
+                        "INFO",
+                        "REBALANCE",
+                        f"Drift-based rebalancing triggered on {date.strftime('%Y-%m-%d')}",
+                        {
+                            "date": date.strftime("%Y-%m-%d"),
+                            "current_weights": current_weights,
+                            "target_weights": target_weights,
+                            "portfolio_value": portfolio_value,
+                        },
+                    )
+
             if should_rebalance:
                 # Calculate new target weights
                 target_weights = strategy.calculate_weights(price_data.loc[:date])
+
+                self._log_trace_event(
+                    strategy_name,
+                    start_date,
+                    end_date,
+                    "DEBUG",
+                    "WEIGHT_CALC",
+                    f"Calculated target weights for {date.strftime('%Y-%m-%d')}",
+                    {
+                        "date": date.strftime("%Y-%m-%d"),
+                        "target_weights": target_weights,
+                        "portfolio_value": portfolio_value,
+                    },
+                )
 
                 # Execute trades to reach target weights
                 new_portfolio_value, new_cash, new_weights, day_trades = (
@@ -313,6 +461,23 @@ class UnifiedBacktester:
                 cash = new_cash
                 current_weights = new_weights
                 trades.extend(day_trades)
+
+                # Log trade execution
+                self._log_trace_event(
+                    strategy_name,
+                    start_date,
+                    end_date,
+                    "INFO",
+                    "TRADE",
+                    f"Executed {len(day_trades)} trades on {date.strftime('%Y-%m-%d')}",
+                    {
+                        "date": date.strftime("%Y-%m-%d"),
+                        "num_trades": len(day_trades),
+                        "trades": day_trades,
+                        "new_portfolio_value": new_portfolio_value,
+                        "cash": new_cash,
+                    },
+                )
 
             # Update portfolio value based on price changes
             if len(current_weights) > 0:
@@ -340,6 +505,23 @@ class UnifiedBacktester:
             returns_series,
             float(portfolio_df["portfolio_value"].iloc[0]),
             float(portfolio_df["portfolio_value"].iloc[-1]),
+        )
+
+        # Log completion
+        self._log_trace_event(
+            strategy_name,
+            start_date,
+            end_date,
+            "INFO",
+            "PERFORMANCE",
+            f"Backtest completed with {len(trades)} trades",
+            {
+                "final_portfolio_value": portfolio_value,
+                "total_return": metrics.get("total_return", 0),
+                "sharpe_ratio": metrics.get("sharpe_ratio", 0),
+                "max_drawdown": metrics.get("max_drawdown", 0),
+                "num_trades": len(trades),
+            },
         )
 
         return {

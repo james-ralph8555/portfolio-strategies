@@ -9,6 +9,7 @@ A modern TypeScript SolidJS frontend with FastAPI backend for managing portfolio
 - **Market Data**: Fetch and cache market data with DuckDB
 - **Results Visualization**: View detailed backtest results and performance metrics
 - **Real-time Updates**: WebSocket support for real-time backtest progress
+- **Time Series Viewer**: Interactive Plotly.js chart to overlay market prices and backtest portfolio values with live updates
 
 ## Architecture
 
@@ -104,6 +105,20 @@ A modern TypeScript SolidJS frontend with FastAPI backend for managing portfolio
 - The **Results** page shows all backtest results
 - Click "View" to see detailed strategy performance
 - Includes portfolio values, trades, and performance metrics
+
+### 4.1 Time Series Viewer (Plotly.js)
+
+- In the unified interface, use the "Time Series Viewer" section to:
+  - Add market symbols from the fetched Market Data panel
+  - Add backtest portfolio value series for any completed strategy
+  - Toggle normalization to compare series on the same scale (index 100)
+  - Show/Hide or Remove individual series
+  - The chart updates dynamically when market data is re-fetched or new backtest results arrive
+
+Notes:
+
+- Market symbols must be fetched first via the Market Data panel to appear in the viewer.
+- Backtest series are loaded on demand and cached; they auto-refresh when the backend broadcasts completion events over WebSocket.
 
 ### 5. Dashboard Overview
 
