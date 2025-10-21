@@ -113,6 +113,19 @@ class ApiClient {
     });
   }
 
+  async getCachedSymbols(): Promise<{ symbols: Array<{ symbol: string; start_date: string; end_date: string; record_count: number; last_updated: string }> }> {
+    return this.request<{ symbols: Array<{ symbol: string; start_date: string; end_date: string; record_count: number; last_updated: string }> }>('/market/cache/symbols');
+  }
+
+  async getCachedSymbolData(symbol: string, startDate?: string, endDate?: string): Promise<{ symbol: string; start_date: string; end_date: string; data: Array<{ date: string; open: number; high: number; low: number; close: number; volume: number; adjusted_close: number }> }> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
+    const queryString = params.toString();
+    return this.request<{ symbol: string; start_date: string; end_date: string; data: Array<{ date: string; open: number; high: number; low: number; close: number; volume: number; adjusted_close: number }> }>(`/market/cache/data/${symbol}${queryString ? `?${queryString}` : ''}`);
+  }
+
   // Health check
   async healthCheck(): Promise<{ status: string; timestamp: string }> {
     return this.request<{ status: string; timestamp: string }>('/health');

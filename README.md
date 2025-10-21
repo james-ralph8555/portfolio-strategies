@@ -15,27 +15,39 @@ This repository provides a modular architecture for implementing trading strateg
 
 ### 1. Equity Crisis Alpha
 
-- **Assets**: TQQQ + DBMF/KMLM (managed futures) + Gold + Cash
+- **Assets**: TQQQ + DBMF/KMLM (managed futures) + IAU (Gold) + SGOV (Cash)
 - **Algorithm**: Leverage-aware ERC with Black-Litterman tilt
 - **Focus**: Crisis protection through managed futures
 
 ### 2. Equity Convex Rate Hedge
 
-- **Assets**: TQQQ + PFIX (rate hedge) + Gold + Cash
+- **Assets**: TQQQ + PFIX (rate hedge) + IAU (Gold) + SGOV (Cash)
 - **Algorithm**: Regime-switch risk budget
 - **Focus**: Protection against rising interest rates
 
 ### 3. Equity Inflation Beta
 
-- **Assets**: TQQQ + PDBC (commodities) + Gold + Cash
+- **Assets**: TQQQ + PDBC (commodities) + IAU (Gold) + SGOV (Cash)
 - **Algorithm**: Two-signal tilt (trend + carry)
 - **Focus**: Inflation protection through commodities
 
 ### 4. Equity Volatility Barbell
 
-- **Assets**: TQQQ + SVOL (short vol) + TAIL (tail hedge) + Cash
+- **Assets**: TQQQ + SVOL (short vol) + TAIL (tail hedge) + SGOV (Cash)
 - **Algorithm**: Barbell allocator with drawdown triggers
 - **Focus**: Volatility premium harvesting with tail protection
+
+### 5. Equity Convex Rate Hedge
+
+- **Assets**: TQQQ + PFIX (rate hedge) + IAU (Gold) + SGOV (Cash)
+- **Algorithm**: Regime-switch risk budget based on stock-bond correlation
+- **Focus**: Enhanced protection against rising interest rates with convex rate protection
+
+### 6. Risk Parity
+
+- **Assets**: TQQQ + TMF (3x leveraged Treasury)
+- **Algorithm**: Risk contribution equalization (75% equity, 25% bond risk)
+- **Focus**: Equity-like returns with bond-like volatility through risk parity allocation
 
 ## Repository Structure
 
@@ -44,8 +56,10 @@ portfolio/
 ├── strategies/                    # Strategy implementations
 │   ├── equity_crisis_alpha/      # Crisis alpha strategy
 │   ├── equity_convex_rate/       # Convex rate hedge
+│   ├── equity_convex_rate_hedge/ # Enhanced convex rate hedge
 │   ├── equity_inflation_beta/    # Inflation beta strategy
-│   └── equity_vol_barbell/       # Volatility barbell
+│   ├── equity_vol_barbell/       # Volatility barbell
+│   └── risk_parity/              # Risk parity strategy
 ├── core/                         # Shared framework components
 │   ├── interfaces/               # Base classes and interfaces
 │   ├── registry.py               # Strategy discovery system

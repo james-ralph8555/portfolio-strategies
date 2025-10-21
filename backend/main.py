@@ -455,6 +455,105 @@ async def get_cache_info():
         ) from e
 
 
+@app.get("/market/cache/symbols")
+async def get_cached_symbols():
+    """Get detailed information about cached symbols and their date ranges."""
+    if not market_data_manager:
+        raise HTTPException(
+            status_code=500, detail="Market data manager not initialized"
+        )
+
+    try:
+        # Get detailed symbol information from cache
+        symbols_data = market_data_manager.cache.conn.execute("""
+            SELECT
+                symbol,
+                MIN(date) as start_date,
+                MAX(date) as end_date,
+                COUNT(*) as record_count,
+                MAX(created_at) as last_updated
+            FROM price_data
+            GROUP BY symbol
+            ORDER BY symbol
+        """).fetchdf()
+
+        # Convert to dict format for JSON response
+        symbols_dict = symbols_data.to_dict(orient="records")
+
+        # Sanitize datetime objects
+        for symbol in symbols_dict:
+            if symbol.get("last_updated"):
+                symbol["last_updated"] = str(symbol["last_updated"])
+            if symbol.get("start_date"):
+                symbol["start_date"] = str(symbol["start_date"])
+            if symbol.get("end_date"):
+                symbol["end_date"] = str(symbol["end_date"])
+
+        return {"symbols": symbols_dict}
+    except Exception as e:
+        logger.error(f"Error getting cached symbols: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error getting cached symbols: {e}"
+        ) from e
+
+
+@app.get("/market/cache/data/{symbol}")
+async def get_cached_symbol_data(
+    symbol: str, start_date: str | None = None, end_date: str | None = None
+):
+    """Get cached market data for a specific symbol."""
+    if not market_data_manager:
+        raise HTTPException(
+            status_code=500, detail="Market data manager not initialized"
+        )
+
+    try:
+        # If no date range provided, get all data for the symbol
+        if not start_date or not end_date:
+            date_range = market_data_manager.cache.conn.execute(
+                "SELECT MIN(date) as min_date, MAX(date) as max_date FROM price_data WHERE symbol = ?",
+                [symbol],
+            ).fetchone()
+
+            if date_range:
+                start_date = str(date_range[0]) if date_range[0] else "2020-01-01"
+                end_date = str(date_range[1]) if date_range[1] else "2024-12-31"
+            else:
+                return {"symbol": symbol, "data": []}
+
+        # Get the price data
+        price_data = market_data_manager.cache.conn.execute(
+            """
+            SELECT date, open, high, low, close, volume, adjusted_close
+            FROM price_data
+            WHERE symbol = ?
+            AND date BETWEEN ? AND ?
+            ORDER BY date
+        """,
+            [symbol, start_date, end_date],
+        ).fetchdf()
+
+        # Convert to dict format
+        data_dict = price_data.to_dict(orient="records")
+
+        # Sanitize date objects
+        for record in data_dict:
+            if record.get("date"):
+                record["date"] = str(record["date"])
+
+        return {
+            "symbol": symbol,
+            "start_date": start_date,
+            "end_date": end_date,
+            "data": data_dict,
+        }
+    except Exception as e:
+        logger.error(f"Error getting cached symbol data: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error getting cached symbol data: {e}"
+        ) from e
+
+
 @app.delete("/market/cache")
 async def clear_cache(symbols: str | None = None):
     """Clear market data cache."""

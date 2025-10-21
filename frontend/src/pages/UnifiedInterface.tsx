@@ -51,6 +51,7 @@ const UnifiedInterface = () => {
   const [strategyTraces, setStrategyTraces] = createSignal<any>(null);
   const [expandedTraceLogs, setExpandedTraceLogs] = createSignal<Record<string, boolean>>({});
   const [traceFilters, setTraceFilters] = createSignal<{level: string, category: string}>({level: '', category: ''});
+  const [expandedTraceData, setExpandedTraceData] = createSignal<Record<string, boolean>>({});
 
   // Time Series Viewer state
   type SeriesSource =
@@ -1093,32 +1094,41 @@ const UnifiedInterface = () => {
                                 return true;
                               })
                               .map((trace: any) => (
-                              <div class="px-2 py-1 hover:bg-gray-100">
-                                <div class="flex items-center gap-2 text-xs">
-                                  <span class={`inline-flex px-1 py-0.5 text-xs font-semibold rounded ${getLevelColor(trace.level)}`}>
-                                    {trace.level}
-                                  </span>
-                                  <span class="text-gray-500">
-                                    {new Date(trace.trace_timestamp).toLocaleDateString()}
-                                  </span>
-                                  <span class="text-gray-500">
-                                    {trace.category}
-                                  </span>
-                                  <span class="text-gray-900 font-medium truncate flex-1">
-                                    {trace.message}
-                                  </span>
-                                  <Show when={trace.data && Object.keys(trace.data).length > 0}>
-                                    <details class="text-xs">
-                                      <summary class="cursor-pointer text-orange-600 hover:text-orange-800">
-                                        View Data
-                                      </summary>
-                                      <pre class="absolute z-10 bg-white border border-gray-300 rounded p-2 mt-1 text-xs overflow-x-auto max-w-md shadow-lg">
-                                        {JSON.stringify(trace.data, null, 2)}
-                                      </pre>
-                                    </details>
-                                  </Show>
-                                </div>
-                              </div>
+                               <div class="px-2 py-1 hover:bg-gray-100">
+                                 <div class="flex items-center gap-2 text-xs">
+                                   <span class={`inline-flex px-1 py-0.5 text-xs font-semibold rounded ${getLevelColor(trace.level)}`}>
+                                     {trace.level}
+                                   </span>
+                                   <span class="text-gray-500">
+                                     {new Date(trace.trace_timestamp).toLocaleDateString()}
+                                   </span>
+                                   <span class="text-gray-500">
+                                     {trace.category}
+                                   </span>
+                                   <span class="text-gray-900 font-medium truncate flex-1">
+                                     {trace.message}
+                                   </span>
+                                   <Show when={trace.data && Object.keys(trace.data).length > 0}>
+                                     <button
+                                       class="text-xs text-orange-600 hover:text-orange-800"
+                                       onClick={() => {
+                                         const traceId = `${trace.trace_timestamp}-${trace.category}`;
+                                         setExpandedTraceData(prev => ({
+                                           ...prev,
+                                           [traceId]: !prev[traceId]
+                                         }));
+                                       }}
+                                     >
+                                       {expandedTraceData()[`${trace.trace_timestamp}-${trace.category}`] ? 'Hide' : 'View'} Data
+                                     </button>
+                                   </Show>
+                                 </div>
+                                 <Show when={trace.data && Object.keys(trace.data).length > 0 && expandedTraceData()[`${trace.trace_timestamp}-${trace.category}`]}>
+                                   <div class="mt-2 p-2 bg-white border border-gray-300 rounded text-xs overflow-x-auto">
+                                     <pre class="whitespace-pre-wrap">{JSON.stringify(trace.data, null, 2)}</pre>
+                                   </div>
+                                 </Show>
+                               </div>
                             ))}
                           </div>
                         </Show>
