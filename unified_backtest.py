@@ -243,24 +243,189 @@ class UnifiedBacktester:
 
         return strategies
 
-    def _initialize_backtest_trace(
+    def _create_backtest_result_entry(
         self, strategy_name: str, start_date: str, end_date: str
-    ) -> str:
-        """Initialize trace logging for a backtest run."""
-        trace_id = f"{strategy_name}_{start_date}_{end_date}_{int(pd.Timestamp.now().timestamp())}"
-
-        # Log initialization
-        self._log_trace_event(
-            strategy_name,
-            start_date,
-            end_date,
-            "INFO",
-            "BACKTEST",
-            f"Starting backtest for {strategy_name}",
-            {"trace_id": trace_id, "initial_capital": 100000.0},
+    ) -> int:
+        """Create a backtest result entry first to enable trace logging."""
+        # Ensure strategy exists in strategies table
+        self.results_conn.execute(
+            "INSERT OR IGNORE INTO strategies (name) VALUES (?)", [strategy_name]
         )
 
-        return trace_id
+        # Get strategy_id
+        strategy_row = self.results_conn.execute(
+            "SELECT id FROM strategies WHERE name = ?", [strategy_name]
+        ).fetchone()
+
+        if not strategy_row:
+            raise ValueError(f"Failed to create or find strategy: {strategy_name}")
+
+        strategy_id = strategy_row[0]
+
+        # Check if result already exists
+        existing = self.results_conn.execute(
+            "SELECT id FROM backtest_results WHERE strategy_id = ? AND start_date = ? AND end_date = ?",
+            [strategy_id, start_date, end_date],
+        ).fetchone()
+
+        if existing:
+            return existing[0]
+
+        # Insert placeholder backtest result
+        self.results_conn.execute(
+            """
+            INSERT INTO backtest_results (
+                strategy_id, start_date, end_date, total_return,
+                annualized_return, volatility, sharpe_ratio, max_drawdown,
+                calmar_ratio, win_rate, profit_factor, avg_trade_return, num_trades
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                strategy_id,
+                start_date,
+                end_date,
+                0.0,  # placeholder values
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0,
+            ],
+        )
+
+        # Get the backtest_result_id
+        backtest_result_row = self.results_conn.execute(
+            "SELECT id FROM backtest_results WHERE strategy_id = ? AND start_date = ? AND end_date = ?",
+            [strategy_id, start_date, end_date],
+        ).fetchone()
+
+        if not backtest_result_row:
+            raise ValueError(
+                f"Failed to create backtest result entry for {strategy_name}"
+            )
+        return backtest_result_row[0]
+
+    def _update_backtest_result(
+        self, strategy_name: str, results: dict[str, Any]
+    ) -> None:
+        """Update the backtest result with final metrics."""
+        # Get strategy_id
+        strategy_row = self.results_conn.execute(
+            "SELECT id FROM strategies WHERE name = ?", [strategy_name]
+        ).fetchone()
+
+        if not strategy_row:
+            raise ValueError(f"Failed to find strategy: {strategy_name}")
+
+        strategy_id = strategy_row[0]
+
+        # Update with actual metrics
+        metrics = results["metrics"]
+        self.results_conn.execute(
+            """
+            UPDATE backtest_results SET
+                total_return = ?, annualized_return = ?, volatility = ?, sharpe_ratio = ?,
+                max_drawdown = ?, calmar_ratio = ?, win_rate = ?, profit_factor = ?,
+                avg_trade_return = ?, num_trades = ?
+            WHERE strategy_id = ? AND start_date = ? AND end_date = ?
+            """,
+            [
+                float(metrics["total_return"]),
+                float(metrics["annualized_return"]),
+                float(metrics["volatility"]),
+                float(metrics["sharpe_ratio"]),
+                float(metrics["max_drawdown"]),
+                float(metrics["calmar_ratio"]),
+                float(metrics["win_rate"]),
+                float(metrics["profit_factor"]),
+                float(metrics["avg_trade_return"]),
+                int(metrics["num_trades"]),
+                strategy_id,
+                results["start_date"],
+                results["end_date"],
+            ],
+        )
+
+        # Store portfolio values and trades
+        self._store_portfolio_values_and_trades(strategy_name, results)
+
+    def _store_portfolio_values_and_trades(
+        self, strategy_name: str, results: dict[str, Any]
+    ) -> None:
+        """Store portfolio values and trades for a backtest result."""
+        # Get strategy_id and backtest_result_id
+        strategy_row = self.results_conn.execute(
+            "SELECT id FROM strategies WHERE name = ?", [strategy_name]
+        ).fetchone()
+
+        if not strategy_row:
+            raise ValueError(f"Failed to find strategy: {strategy_name}")
+
+        strategy_id = strategy_row[0]
+
+        backtest_result_row = self.results_conn.execute(
+            "SELECT id FROM backtest_results WHERE strategy_id = ? AND start_date = ? AND end_date = ?",
+            [strategy_id, results["start_date"], results["end_date"]],
+        ).fetchone()
+
+        if not backtest_result_row:
+            raise ValueError(f"Failed to find backtest result for {strategy_name}")
+
+        backtest_result_id = backtest_result_row[0]
+
+        # Store portfolio values
+        portfolio_df = results["portfolio_values"]
+        for date, row in portfolio_df.iterrows():
+            # Check if record already exists
+            existing = self.results_conn.execute(
+                "SELECT 1 FROM portfolio_values WHERE backtest_result_id = ? AND date = ?",
+                [backtest_result_id, date],
+            ).fetchone()
+
+            if not existing:
+                self.results_conn.execute(
+                    """
+                    INSERT INTO portfolio_values (backtest_result_id, date, portfolio_value, cash, weights)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    [
+                        backtest_result_id,
+                        date,
+                        float(row["portfolio_value"]),
+                        float(row["cash"]),
+                        str(row["weights"]),  # Convert dict to string for storage
+                    ],
+                )
+
+        # Store trades
+        for trade in results["trades"]:
+            trade_date = trade.get("trade_date", results["start_date"])
+            # Check if trade already exists
+            existing = self.results_conn.execute(
+                "SELECT 1 FROM trades WHERE backtest_result_id = ? AND trade_date = ? AND symbol = ? AND action = ?",
+                [backtest_result_id, trade_date, trade["symbol"], trade["action"]],
+            ).fetchone()
+
+            if not existing:
+                self.results_conn.execute(
+                    """
+                    INSERT INTO trades (backtest_result_id, trade_date, symbol, action, quantity, price, value)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    [
+                        backtest_result_id,
+                        trade_date,
+                        trade["symbol"],
+                        trade["action"],
+                        float(trade["quantity"]),
+                        float(trade["price"]),
+                        float(trade["value"]),
+                    ],
+                )
 
     def _sanitize_for_json(self, obj: Any) -> Any:
         """Sanitize object for JSON serialization."""
@@ -281,9 +446,7 @@ class UnifiedBacktester:
 
     def _log_trace_event(
         self,
-        strategy_name: str,
-        start_date: str,
-        end_date: str,
+        backtest_result_id: int,
         level: str,
         category: str,
         message: str,
@@ -292,37 +455,6 @@ class UnifiedBacktester:
         """Log a trace event for the backtest."""
         try:
             import json
-
-            # Get strategy_id
-            strategy_row = self.results_conn.execute(
-                "SELECT id FROM strategies WHERE name = ?", [strategy_name]
-            ).fetchone()
-
-            if not strategy_row:
-                # Create strategy if it doesn't exist
-                self.results_conn.execute(
-                    "INSERT OR IGNORE INTO strategies (name) VALUES (?)",
-                    [strategy_name],
-                )
-                strategy_row = self.results_conn.execute(
-                    "SELECT id FROM strategies WHERE name = ?", [strategy_name]
-                ).fetchone()
-
-            if not strategy_row:
-                return  # Skip logging if we can't find/create strategy
-
-            strategy_id = strategy_row[0]
-
-            # Get backtest_result_id
-            backtest_result_row = self.results_conn.execute(
-                "SELECT id FROM backtest_results WHERE strategy_id = ? AND start_date = ? AND end_date = ?",
-                [strategy_id, start_date, end_date],
-            ).fetchone()
-
-            if not backtest_result_row:
-                return  # Skip logging if backtest result doesn't exist yet
-
-            backtest_result_id = backtest_result_row[0]
 
             sanitized_data = self._sanitize_for_json(data) if data else None
             self.results_conn.execute(
@@ -381,16 +513,23 @@ class UnifiedBacktester:
         if price_data.empty:
             raise ValueError(f"No price data available for assets {assets}")
 
-        # Initialize trace logging for this backtest
-        self._initialize_backtest_trace(strategy_name, start_date, end_date)
-
-        # Run the backtest simulation
-        results = self._simulate_backtest(
-            strategy, price_data, start_date, end_date, initial_capital
+        # Create backtest result entry first to enable trace logging
+        backtest_result_id = self._create_backtest_result_entry(
+            strategy_name, start_date, end_date
         )
 
-        # Store results in database
-        self._store_backtest_results(strategy_name, results)
+        # Run the backtest simulation with trace logging
+        results = self._simulate_backtest(
+            strategy,
+            price_data,
+            start_date,
+            end_date,
+            initial_capital,
+            backtest_result_id,
+        )
+
+        # Update the backtest result with final metrics
+        self._update_backtest_result(strategy_name, results)
 
         return results
 
@@ -401,6 +540,7 @@ class UnifiedBacktester:
         start_date: str,
         end_date: str,
         initial_capital: float,
+        backtest_result_id: int,
     ) -> dict[str, Any]:
         """
         Simulate the backtest for a strategy.
@@ -425,9 +565,7 @@ class UnifiedBacktester:
         # Initialize trace logging for this backtest
         strategy_name = strategy.get_name()
         self._log_trace_event(
-            strategy_name,
-            start_date,
-            end_date,
+            backtest_result_id,
             "INFO",
             "PORTFOLIO",
             f"Initializing portfolio with ${initial_capital:,.2f}",
@@ -452,9 +590,7 @@ class UnifiedBacktester:
             if i == 0:  # First day - always rebalance
                 should_rebalance = True
                 self._log_trace_event(
-                    strategy_name,
-                    start_date,
-                    end_date,
+                    backtest_result_id,
                     "INFO",
                     "REBALANCE",
                     f"First day rebalancing on {date.strftime('%Y-%m-%d')}",
@@ -472,9 +608,7 @@ class UnifiedBacktester:
 
                 if should_rebalance:
                     self._log_trace_event(
-                        strategy_name,
-                        start_date,
-                        end_date,
+                        backtest_result_id,
                         "INFO",
                         "REBALANCE",
                         f"Drift-based rebalancing triggered on {date.strftime('%Y-%m-%d')}",
@@ -491,9 +625,7 @@ class UnifiedBacktester:
                 target_weights = strategy.calculate_weights(price_data.loc[:date])
 
                 self._log_trace_event(
-                    strategy_name,
-                    start_date,
-                    end_date,
+                    backtest_result_id,
                     "DEBUG",
                     "WEIGHT_CALC",
                     f"Calculated target weights for {date.strftime('%Y-%m-%d')}",
@@ -523,12 +655,10 @@ class UnifiedBacktester:
 
                 # Log trade execution
                 self._log_trace_event(
-                    strategy_name,
-                    start_date,
-                    end_date,
-                    "INFO",
+                    backtest_result_id,
+                    "DEBUG",
                     "TRADE",
-                    f"Executed {len(day_trades)} trades on {date.strftime('%Y-%m-%d')}",
+                    f"Executing {len(trades)} trades on {date.strftime('%Y-%m-%d')}",
                     {
                         "date": date.strftime("%Y-%m-%d"),
                         "num_trades": len(day_trades),
@@ -568,12 +698,10 @@ class UnifiedBacktester:
 
         # Log completion
         self._log_trace_event(
-            strategy_name,
-            start_date,
-            end_date,
+            backtest_result_id,
             "INFO",
             "PERFORMANCE",
-            f"Backtest completed with {len(trades)} trades",
+            f"Backtest completed for {strategy_name}",
             {
                 "final_portfolio_value": portfolio_value,
                 "total_return": metrics.get("total_return", 0),
@@ -754,121 +882,6 @@ class UnifiedBacktester:
             "avg_trade_return": self._sanitize_float(avg_trade_return),
             "num_trades": int(num_trades),
         }
-
-    def _store_backtest_results(
-        self, strategy_name: str, results: dict[str, Any]
-    ) -> None:
-        """Store backtest results in the database."""
-        # Ensure strategy exists in strategies table
-        self.results_conn.execute(
-            "INSERT OR IGNORE INTO strategies (name) VALUES (?)", [strategy_name]
-        )
-
-        # Get strategy_id
-        strategy_row = self.results_conn.execute(
-            "SELECT id FROM strategies WHERE name = ?", [strategy_name]
-        ).fetchone()
-
-        if not strategy_row:
-            raise ValueError(f"Failed to create or find strategy: {strategy_name}")
-
-        strategy_id = strategy_row[0]
-
-        # Store summary metrics
-        metrics = results["metrics"]
-        # Check if result already exists
-        existing = self.results_conn.execute(
-            "SELECT id FROM backtest_results WHERE strategy_id = ? AND start_date = ? AND end_date = ?",
-            [strategy_id, results["start_date"], results["end_date"]],
-        ).fetchone()
-
-        backtest_result_id = None
-        if not existing:
-            # Insert new backtest result
-            self.results_conn.execute(
-                """
-                INSERT INTO backtest_results (
-                    strategy_id, start_date, end_date, total_return,
-                    annualized_return, volatility, sharpe_ratio, max_drawdown,
-                    calmar_ratio, win_rate, profit_factor, avg_trade_return, num_trades
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    strategy_id,
-                    results["start_date"],
-                    results["end_date"],
-                    float(metrics["total_return"]),
-                    float(metrics["annualized_return"]),
-                    float(metrics["volatility"]),
-                    float(metrics["sharpe_ratio"]),
-                    float(metrics["max_drawdown"]),
-                    float(metrics["calmar_ratio"]),
-                    float(metrics["win_rate"]),
-                    float(metrics["profit_factor"]),
-                    float(metrics["avg_trade_return"]),
-                    int(metrics["num_trades"]),
-                ],
-            )
-
-            # Get the backtest_result_id
-            backtest_result_row = self.results_conn.execute(
-                "SELECT id FROM backtest_results WHERE strategy_id = ? AND start_date = ? AND end_date = ?",
-                [strategy_id, results["start_date"], results["end_date"]],
-            ).fetchone()
-            backtest_result_id = backtest_result_row[0] if backtest_result_row else None
-        else:
-            backtest_result_id = existing[0]
-
-        if backtest_result_id:
-            # Store portfolio values
-            portfolio_df = results["portfolio_values"]
-            for date, row in portfolio_df.iterrows():
-                # Check if record already exists
-                existing = self.results_conn.execute(
-                    "SELECT 1 FROM portfolio_values WHERE backtest_result_id = ? AND date = ?",
-                    [backtest_result_id, date],
-                ).fetchone()
-
-                if not existing:
-                    self.results_conn.execute(
-                        """
-                        INSERT INTO portfolio_values (backtest_result_id, date, portfolio_value, cash, weights)
-                        VALUES (?, ?, ?, ?, ?)
-                        """,
-                        [
-                            backtest_result_id,
-                            date,
-                            float(row["portfolio_value"]),
-                            float(row["cash"]),
-                            str(row["weights"]),  # Convert dict to string for storage
-                        ],
-                    )
-
-            # Store trades
-            for trade in results["trades"]:
-                trade_date = trade.get("trade_date", results["start_date"])
-                # Check if trade already exists
-                existing = self.results_conn.execute(
-                    "SELECT 1 FROM trades WHERE backtest_result_id = ? AND trade_date = ? AND symbol = ? AND action = ?",
-                    [backtest_result_id, trade_date, trade["symbol"], trade["action"]],
-                ).fetchone()
-
-                if not existing:
-                    self.results_conn.execute(
-                        """
-                        INSERT INTO trades (backtest_result_id, trade_date, symbol, action, quantity, price, value)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                        [
-                            backtest_result_id,
-                            trade_date,
-                            trade["symbol"],
-                            trade["action"],
-                            float(trade["quantity"]),
-                            float(trade["price"]),
-                            float(trade["value"]),
-                        ],
-                    )
 
     def run_all_strategies(
         self,

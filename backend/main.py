@@ -58,7 +58,9 @@ async def lifespan(app: FastAPI):
     global market_data_manager, backtester
     try:
         market_data_manager = MarketDataManager()
-        backtester = UnifiedBacktester()
+        backtester = UnifiedBacktester(
+            "/home/james/projects/portfolio/cache/backtest_results.duckdb"
+        )
         logger.info("Backend services initialized successfully")
         yield
     except Exception as e:
