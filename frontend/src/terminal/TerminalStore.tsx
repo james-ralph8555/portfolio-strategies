@@ -84,6 +84,16 @@ type TerminalStore = {
 
   availableMarketSymbols: Accessor<string[]>;
   watchlistRows: Accessor<Array<{ symbol: string; last: number; chg: number; volume?: number }>>;
+
+  strategyDocumentation: Accessor<{
+    strategy_name: string;
+    readme: string;
+    source_code: string;
+    has_readme: boolean;
+    has_source: boolean;
+  } | null>;
+  strategyDocumentationLoading: Accessor<boolean>;
+  loadStrategyDocumentation: (strategyName: string) => Promise<void>;
 };
 
 const TerminalContext = createContext<TerminalStore>();
@@ -333,6 +343,7 @@ export const createTerminalStore = (): TerminalStore => {
     const strategyName = selectedResultStrategy();
     if (strategyName) {
       void loadStrategyTraces(strategyName);
+      void loadStrategyDocumentation(strategyName);
     }
   });
 
@@ -354,6 +365,35 @@ export const createTerminalStore = (): TerminalStore => {
       return { symbol, last, chg };
     });
   });
+
+  const [strategyDocumentation, setStrategyDocumentation] = createSignal<{
+    strategy_name: string;
+    readme: string;
+    source_code: string;
+    has_readme: boolean;
+    has_source: boolean;
+  } | null>(null);
+  const [strategyDocumentationLoading, setStrategyDocumentationLoading] = createSignal(false);
+
+  const loadStrategyDocumentation = async (strategyName: string) => {
+    console.log('loadStrategyDocumentation called with:', strategyName);
+    if (!strategyName) {
+      setStrategyDocumentation(null);
+      return;
+    }
+    setStrategyDocumentationLoading(true);
+    try {
+      console.log('Fetching documentation from API...');
+      const documentation = await apiClient.getStrategyDocumentation(strategyName);
+      console.log('Documentation received:', documentation ? 'success' : 'null');
+      setStrategyDocumentation(documentation);
+    } catch (error) {
+      console.error('Failed to load strategy documentation', error);
+      setStrategyDocumentation(null);
+    } finally {
+      setStrategyDocumentationLoading(false);
+    }
+  };
 
   // Auto-refresh via WebSocket events
   let ws: WebSocket | null = null;
@@ -449,6 +489,10 @@ export const createTerminalStore = (): TerminalStore => {
 
     availableMarketSymbols,
     watchlistRows,
+
+    strategyDocumentation,
+    strategyDocumentationLoading,
+    loadStrategyDocumentation,
   };
 };
 

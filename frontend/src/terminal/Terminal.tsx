@@ -14,6 +14,7 @@ import ResultsPane from './panes/ResultsPane';
 import DetailsPane from './panes/DetailsPane';
 import ChartControlsPane from './panes/ChartControlsPane';
 import CachePane from './panes/CachePane';
+
 import { createTerminalStore, TerminalProvider } from './TerminalStore';
 
 export default function Terminal() {
@@ -80,6 +81,9 @@ export default function Terminal() {
     // Ensure initial layout before any panels are added or restored.
     dockview.layout(containerRef.clientWidth, containerRef.clientHeight);
 
+    // Store dockview instance globally for access from other components
+    (window as any).dockviewInstance = dockview;
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       try {
@@ -134,6 +138,7 @@ export default function Terminal() {
         position: { referencePanel: logs, direction: 'below' },
       });
 
+
       // ensure initial focus matches previous behaviour
       dockview.setActivePanel(chartPanel);
     }
@@ -151,6 +156,10 @@ export default function Terminal() {
     disposeLayoutListener?.();
     dockview?.dispose();
     dockview = undefined;
+    // Clean up global reference
+    if ((window as any).dockviewInstance === dockview) {
+      (window as any).dockviewInstance = undefined;
+    }
   });
 
   return (

@@ -57,6 +57,16 @@ class ApiClient {
     return this.request<Strategy>(`/strategies/${name}`);
   }
 
+  async getStrategyDocumentation(name: string): Promise<{
+    strategy_name: string;
+    readme: string;
+    source_code: string;
+    has_readme: boolean;
+    has_source: boolean;
+  }> {
+    return this.request(`/strategies/${name}/documentation`);
+  }
+
   // Backtest endpoints
   async runBacktest(request: BacktestRequest): Promise<BacktestResponse> {
     return this.request<BacktestResponse>('/backtest', {

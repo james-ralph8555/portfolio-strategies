@@ -31,16 +31,57 @@ export default function ControlPane() {
         <form style={{ display: 'grid', gap: '6px' }} onSubmit={handleRunBacktest}>
           <label style={{ display: 'flex', 'flex-direction': 'column', gap: '4px' }}>
             <span>Strategy</span>
-            <select value={store.selectedStrategy()} onChange={(event) => store.setSelectedStrategy(event.currentTarget.value)} style={{ padding: '4px', 'background-color': '#0f1115', color: '#f9fafb', border: '1px solid #374151', 'border-radius': '3px' }}>
-              <option value="">Select strategy…</option>
-              <Show when={!store.strategies.loading} fallback={<option disabled>Loading…</option>}>
-                <For each={store.strategies() || []}>
-                  {(strategy) => (
-                    <option value={strategy.name}>{strategy.name}</option>
-                  )}
-                </For>
-              </Show>
-            </select>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <select value={store.selectedStrategy()} onChange={(event) => {
+                store.setSelectedStrategy(event.currentTarget.value);
+                if (event.currentTarget.value) {
+                  void store.loadStrategyDocumentation(event.currentTarget.value);
+                }
+              }} style={{ flex: 1, padding: '4px', 'background-color': '#0f1115', color: '#f9fafb', border: '1px solid #374151', 'border-radius': '3px' }}>
+                <option value="">Select strategy…</option>
+                <Show when={!store.strategies.loading} fallback={<option disabled>Loading…</option>}>
+                  <For each={store.strategies() || []}>
+                    {(strategy) => (
+                      <option value={strategy.name}>{strategy.name}</option>
+                    )}
+                  </For>
+                </Show>
+              </select>
+              <button
+                style={{
+                  padding: '4px 8px',
+                  'font-weight': 600,
+                  'border-radius': '3px',
+                  border: '1px solid #6b7280',
+                  'background-color': '#374151',
+                  color: '#f9fafb',
+                  cursor: 'pointer',
+                  'white-space': 'nowrap'
+                }}
+                onClick={() => {
+                  const strategy = store.selectedStrategy();
+                  if (strategy) {
+                    void store.loadStrategyDocumentation(strategy);
+                    // Focus on the details panel since documentation is now a tab there
+                    setTimeout(() => {
+                      const dockviewInstance = (window as any).dockviewInstance;
+                      if (dockviewInstance) {
+                        const detailsPanel = dockviewInstance.panels.find(
+                          (panel: any) => panel.id === 'details'
+                        );
+                        if (detailsPanel) {
+                          dockviewInstance.setActivePanel(detailsPanel);
+                        }
+                      }
+                    }, 100);
+                  }
+                }}
+                disabled={!store.selectedStrategy() || store.strategyDocumentationLoading()}
+                title="View strategy documentation"
+              >
+                Info
+              </button>
+            </div>
           </label>
           <div style={{ display: 'grid', gap: '6px', 'grid-template-columns': 'repeat(2, minmax(0, 1fr))' }}>
             <label style={{ display: 'flex', 'flex-direction': 'column', gap: '4px' }}>

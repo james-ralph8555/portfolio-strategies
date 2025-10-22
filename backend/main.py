@@ -6,6 +6,7 @@ and viewing results from DuckDB databases.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
@@ -212,6 +213,47 @@ async def get_strategy(strategy_name: str):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error getting strategy info: {e}"
+        ) from e
+
+
+@app.get("/strategies/{strategy_name}/documentation")
+async def get_strategy_documentation(strategy_name: str):
+    """Get strategy documentation including README and source code."""
+    if not backtester or strategy_name not in backtester.strategies:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    try:
+        # Get the strategy directory path
+        strategy_dir = f"/home/james/projects/portfolio/strategies/{strategy_name}"
+
+        if not os.path.exists(strategy_dir):
+            raise HTTPException(status_code=404, detail="Strategy directory not found")
+
+        # Read README.md if it exists
+        readme_content = ""
+        readme_path = os.path.join(strategy_dir, "README.md")
+        if os.path.exists(readme_path):
+            with open(readme_path, encoding="utf-8") as f:
+                readme_content = f.read()
+
+        # Read strategy.py if it exists
+        source_content = ""
+        source_path = os.path.join(strategy_dir, "strategy.py")
+        if os.path.exists(source_path):
+            with open(source_path, encoding="utf-8") as f:
+                source_content = f.read()
+
+        return {
+            "strategy_name": strategy_name,
+            "readme": readme_content,
+            "source_code": source_content,
+            "has_readme": bool(readme_content),
+            "has_source": bool(source_content),
+        }
+    except Exception as e:
+        logger.error(f"Error getting strategy documentation: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error getting strategy documentation: {e}"
         ) from e
 
 

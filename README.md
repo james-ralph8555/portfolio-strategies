@@ -1,15 +1,55 @@
 # Portfolio Strategies Framework
 
-A structured framework for implementing and backtesting quantitative trading strategies focused on TQQQ-centric portfolios with various risk management approaches.
+A modern web application for implementing and backtesting quantitative trading strategies focused on TQQQ-centric portfolios with various risk management approaches.
 
-## Overview
+# TODO INSERT public/homescreen.webp here
 
-This repository provides a modular architecture for implementing trading strategies that allows multiple contributors to work independently without merge conflicts. The framework includes:
+## Quick Start
 
-- **Common Strategy Interface**: Standardized base class for all strategies
-- **Strategy Registry**: Automatic discovery and management of strategies
-- **Configuration Management**: Centralized config system with validation
-- **Modular Structure**: Isolated strategy implementations
+### Prerequisites
+
+```bash
+# Enter the Nix shell (recommended)
+nix develop
+```
+
+### Launch the Web Application
+
+The easiest way to get started is using the provided startup script:
+
+```bash
+# Start both backend and frontend servers
+./start-web.sh
+```
+
+This will:
+
+- Start the FastAPI backend server on `http://localhost:8000`
+- Start the frontend development server on `http://localhost:3000`
+- Open the web interface in your browser
+
+### Manual Startup
+
+If you prefer to start the servers manually:
+
+```bash
+# Terminal 1: Start backend
+cd backend
+python start.py
+
+# Terminal 2: Start frontend (in another terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+### Using the Application
+
+1. **Open your browser** to `http://localhost:3000`
+2. **Fetch market data** using the Market Data panel
+3. **Run backtests** for individual strategies or all at once
+4. **View results** with interactive charts and performance metrics
+5. **Analyze performance** using the time series viewer
 
 ## Available Strategies
 
@@ -49,50 +89,6 @@ This repository provides a modular architecture for implementing trading strateg
 - **Algorithm**: Risk contribution equalization (75% equity, 25% bond risk)
 - **Focus**: Equity-like returns with bond-like volatility through risk parity allocation
 
-## Repository Structure
-
-```
-portfolio/
-├── strategies/                    # Strategy implementations
-│   ├── equity_crisis_alpha/      # Crisis alpha strategy
-│   ├── equity_convex_rate/       # Convex rate hedge
-│   ├── equity_convex_rate_hedge/ # Enhanced convex rate hedge
-│   ├── equity_inflation_beta/    # Inflation beta strategy
-│   ├── equity_vol_barbell/       # Volatility barbell
-│   └── risk_parity/              # Risk parity strategy
-├── core/                         # Shared framework components
-│   ├── interfaces/               # Base classes and interfaces
-│   ├── registry.py               # Strategy discovery system
-│   └── config/                   # Configuration management
-├── tests/                        # Test suite
-└── docs/                         # Documentation
-```
-
-## Quick Start
-
-### Prerequisites
-
-```bash
-# Enter the Nix shell
-nix develop
-```
-
-### Using a Strategy
-
-```python
-from core.registry import registry
-
-# Discover all available strategies
-registry.discover_strategies()
-print(registry.list_strategies())
-
-# Create a strategy instance
-strategy = registry.create_strategy("equity_crisis_alpha", config)
-
-# Calculate weights
-weights = strategy.calculate_weights(market_data)
-```
-
 ### Adding a New Strategy
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on implementing new strategies.
@@ -109,6 +105,24 @@ python -m pytest tests/
 python -m pytest tests/test_strategy.py
 ```
 
+### Web Application Development
+
+For development on the web application:
+
+```bash
+# Start backend in development mode
+cd backend
+python start.py
+
+# Start frontend with hot reload
+cd frontend
+npm run dev
+```
+
+For detailed web application documentation, see [README_WEB.md](README_WEB.md)
+
+The backend API documentation is available at `http://localhost:8000/docs`
+
 ## Configuration
 
 Strategies use YAML configuration files with support for:
@@ -122,9 +136,3 @@ Example environment override:
 ```bash
 export EQUITY_CRISIS_ALPHA_VOLATILITY_TARGET=0.12
 ```
-
-## References
-
-- [AQR Capital Management Research](https://www.aqr.com/Insights/Research)
-- [Simplify ETFs](https://www.simplify.us/etfs)
-- [Volatility Managed Portfolios](https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513)

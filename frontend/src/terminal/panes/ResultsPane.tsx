@@ -64,10 +64,12 @@ export default function ResultsPane() {
       onRowClicked: (event) => {
         if (!event.data?.strategy_name) return;
         void store.loadStrategyDetails(event.data.strategy_name);
+        void store.loadStrategyDocumentation(event.data.strategy_name);
       },
       onRowDoubleClicked: (event) => {
         if (!event.data?.strategy_name) return;
         void store.loadStrategyDetails(event.data.strategy_name);
+        void store.loadStrategyDocumentation(event.data.strategy_name);
         void store.addBacktestSeries(event.data.strategy_name);
       },
     };
