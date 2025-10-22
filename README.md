@@ -2,7 +2,7 @@
 
 A modern web application for implementing and backtesting quantitative trading strategies focused on TQQQ-centric portfolios with various risk management approaches.
 
-# TODO INSERT public/homescreen.webp here
+![Demo](public/demo.jpg)
 
 ## Quick Start
 
