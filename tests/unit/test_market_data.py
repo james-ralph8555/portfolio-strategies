@@ -37,7 +37,7 @@ class TestDataCache:
         table_names = [row[0] for row in tables]
 
         assert "price_data" in table_names
-        assert "metadata" in table_names
+        assert "symbols" in table_names
 
     def test_store_and_retrieve_price_data(self) -> None:
         """Test storing and retrieving price data."""

@@ -41,7 +41,7 @@ class DataCache:
 
     def _ensure_connection(self) -> None:
         """Ensure database connection is available."""
-        if not self.conn:
+        if self.conn is None:
             self.conn = duckdb.connect(self.cache_path)
 
     def _initialize_cache(self) -> None:
@@ -263,7 +263,7 @@ class DataCache:
 
         try:
             self.conn.execute(
-                "INSERT OR REPLACE INTO symbols VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT OR REPLACE INTO symbols (symbol, name, sector, industry, market_cap, currency, exchange, country, timezone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     filtered_metadata["symbol"],
                     filtered_metadata["name"],
@@ -274,8 +274,6 @@ class DataCache:
                     filtered_metadata["exchange"],
                     filtered_metadata["country"],
                     filtered_metadata["timezone"],
-                    datetime.now(),
-                    datetime.now(),
                 ],
             )
         except Exception as e:

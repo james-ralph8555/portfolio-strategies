@@ -58,6 +58,10 @@ async def lifespan(app: FastAPI):
     # Startup
     global market_data_manager, backtester
     try:
+        # Ensure cache directory exists
+        cache_dir = "/home/james/projects/portfolio/cache"
+        os.makedirs(cache_dir, exist_ok=True)
+
         market_data_manager = MarketDataManager()
         backtester = UnifiedBacktester(
             "/home/james/projects/portfolio/cache/backtest_results.duckdb"

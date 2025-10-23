@@ -172,7 +172,8 @@ class MarketDataManager:
             if not force_refresh:
                 # Try cache first
                 cached_meta = self.cache.get_metadata(symbol)
-                if cached_meta:
+                # Check if cached metadata has actual values (not just symbol with None values)
+                if cached_meta and cached_meta.get("name") is not None:
                     metadata[symbol] = cached_meta
                     continue
 
