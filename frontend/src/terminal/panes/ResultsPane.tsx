@@ -7,7 +7,7 @@ import { ensureAgGridModules } from '../../utils/ensureAgGridModules';
 import { useTerminalStore } from '../TerminalStore';
 
 const columns: ColDef[] = [
-  { field: 'strategy_name', headerName: 'Strategy', minWidth: 140 },
+  { field: 'name', headerName: 'Backtest Name', minWidth: 180 },
   {
     field: 'total_return',
     headerName: 'Return %',
@@ -67,10 +67,10 @@ export default function ResultsPane() {
         void store.loadStrategyDocumentation(event.data.strategy_name);
       },
       onRowDoubleClicked: (event) => {
-        if (!event.data?.strategy_name) return;
+        if (!event.data?.name) return;
         void store.loadStrategyDetails(event.data.strategy_name);
         void store.loadStrategyDocumentation(event.data.strategy_name);
-        void store.addBacktestSeries(event.data.strategy_name);
+        void store.addBacktestSeries(event.data.name);
       },
     };
 

@@ -4,7 +4,7 @@ import { useTerminalStore } from '../TerminalStore';
 export default function ChartControlsPane() {
   const store = useTerminalStore();
 
-  const backtestNames = createMemo(() => (store.results() || []).map((row) => row.strategy_name));
+  const backtestNames = createMemo(() => (store.results() || []).map((row) => row.name));
 
   const remove = (id: string) => store.removeSeries(id);
   const toggle = (id: string) => store.toggleSeriesVisibility(id);
@@ -77,7 +77,7 @@ export default function ChartControlsPane() {
                   <div style={{ flex: 1 }}>
                     <div style={{ color: '#f9fafb' }}>{series.label}</div>
                     <div style={{ color: '#6b7280', 'font-size': '10px' }}>
-                      {series.source.kind === 'market' ? 'Market' : 'Backtest'} · {series.source.kind === 'market' ? series.source.symbol : series.source.strategyName}
+                      {series.source.kind === 'market' ? 'Market' : 'Backtest'} · {series.source.kind === 'market' ? series.source.symbol : series.source.backtestName}
                     </div>
                   </div>
                   <label style={{ display: 'flex', 'align-items': 'center', gap: '4px', 'font-size': '11px' }}>

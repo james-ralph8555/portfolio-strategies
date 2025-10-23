@@ -8,7 +8,7 @@ This repository provides a structured framework for implementing trading strateg
 portfolio/
 ├── strategies/                    # Strategy implementations
 │   ├── equity_crisis_alpha/      # Strategy 1: TQQQ + managed futures
-│   ├── equity_convex_rate/       # Strategy 2: TQQQ + rate hedge
+│   ├── equity_convex_rate_hedge/ # Strategy 2: TQQQ + rate hedge
 │   ├── equity_inflation_beta/    # Strategy 3: TQQQ + commodities
 │   └── equity_vol_barbell/       # Strategy 4: TQQQ + vol sleeves
 ├── core/                         # Shared components

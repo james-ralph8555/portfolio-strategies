@@ -7,16 +7,26 @@ and viewing results from DuckDB databases.
 
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from core.market_data.manager import MarketDataManager
-from unified_backtest import UnifiedBacktester
+# Add project root to path for imports
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
+try:
+    from backend.unified_backtest import UnifiedBacktester
+    from core.market_data.manager import MarketDataManager
+except ImportError as e:
+    print(f"Failed to import required modules: {e}")
+    raise
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -64,7 +74,7 @@ async def lifespan(app: FastAPI):
 
         market_data_manager = MarketDataManager()
         backtester = UnifiedBacktester(
-            "/home/james/projects/portfolio/cache/backtest_results.duckdb"
+            results_db_path="/home/james/projects/portfolio/cache/backtest_results.duckdb"
         )
         logger.info("Backend services initialized successfully")
         yield
@@ -130,6 +140,7 @@ class BacktestRequest(BaseModel):
     start_date: str
     end_date: str
     initial_capital: float = 100000.0
+    name: str | None = None
 
 
 class BacktestResponse(BaseModel):
@@ -274,6 +285,7 @@ async def run_backtest(request: BacktestRequest):
             request.start_date,
             request.end_date,
             request.initial_capital,
+            request.name,
         )
 
         # Sanitize metrics to ensure JSON compatibility

@@ -16,21 +16,44 @@ NEVER RUN THE BACKEND SERVER - Tell the user to run it manually if needed:
 nix develop --command python backend/main.py
 ```
 
-## Debug Trace Logs
+## Database Access Guide
 
-The debug trace logs functionality requires:
+### Reading Backtest Results Database
 
-1. Running backtests to generate trace data in the database
-2. The backend server to be running to serve the trace data via API
-3. Trace logs are stored in the `backtest_traces` table in `backtest_results/backtest_results.duckdb`
+The backtest results are stored in `cache/backtest_results.duckdb`. Here's how to query it:
 
-If trace logs show "No debug trace logs available", run a backtest first:
+```python
+import duckdb
+import pandas as pd
 
-```bash
-nix develop --command python -c "
-from unified_backtest import UnifiedBacktester
-backtester = UnifiedBacktester()
-backtester.run_backtest('equity_vol_barbell', '2023-01-01', '2023-01-31', 100000.0)
-backtester.close()
-"
+# Connect to database
+conn = duckdb.connect('/home/james/projects/portfolio/cache/backtest_results.duckdb')
+
+# List all strategies
+strategies = conn.execute('SELECT * FROM strategies').fetchdf()
+print(strategies)
+
+# Get backtest results for a specific strategy
+strategy_name = 'risk_parity'
+strategy_id = int(strategies[strategies['name'] == strategy_name]['id'].iloc[0])
+results = conn.execute(
+    'SELECT * FROM backtest_results WHERE strategy_id = ?',
+    [strategy_id]
+).fetchdf()
+print(results)
+
+# Get portfolio values for the most recent backtest
+if not results.empty:
+    latest_result_id = int(results.iloc[-1]['id'])
+    portfolio_values = conn.execute(
+        'SELECT date, portfolio_value FROM portfolio_values WHERE backtest_result_id = ? ORDER BY date',
+        [latest_result_id]
+    ).fetchdf()
+    print(portfolio_values.tail(10))
+
+conn.close()
 ```
+
+### Important Notes
+
+- Stop any running backend/web servers before accessing the database to avoid lock conflicts

@@ -17,7 +17,7 @@ repos:
         name: ruff
         entry: ruff check
         language: system
-        args: [--fix]
+        args: [--fix, --ignore=E402]
         types: [python]
       - id: ruff-format
         name: ruff-format

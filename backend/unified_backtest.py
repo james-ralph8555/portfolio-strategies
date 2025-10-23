@@ -17,6 +17,10 @@ import numpy as np
 import pandas as pd
 import yaml
 
+# Add project root to path for imports
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
 from core.market_data.manager import MarketDataManager
 
 
@@ -99,6 +103,7 @@ class UnifiedBacktester:
         self.results_conn.execute("""
             CREATE TABLE IF NOT EXISTS backtest_results (
                 id BIGINT PRIMARY KEY DEFAULT nextval('backtest_results_id_seq'),
+                name VARCHAR NOT NULL,
                 strategy_id BIGINT NOT NULL,
                 start_date DATE NOT NULL,
                 end_date DATE NOT NULL,
@@ -244,7 +249,11 @@ class UnifiedBacktester:
         return strategies
 
     def _create_backtest_result_entry(
-        self, strategy_name: str, start_date: str, end_date: str
+        self,
+        strategy_name: str,
+        start_date: str,
+        end_date: str,
+        name: str | None = None,
     ) -> int:
         """Create a backtest result entry first to enable trace logging."""
         # Ensure strategy exists in strategies table
@@ -271,16 +280,24 @@ class UnifiedBacktester:
         if existing:
             return existing[0]
 
+        # Generate default name if not provided
+        if name is None:
+            from datetime import datetime
+
+            timestamp = datetime.now().isoformat()
+            name = f"{strategy_name}-{timestamp}"
+
         # Insert placeholder backtest result
         self.results_conn.execute(
             """
             INSERT INTO backtest_results (
-                strategy_id, start_date, end_date, total_return,
+                name, strategy_id, start_date, end_date, total_return,
                 annualized_return, volatility, sharpe_ratio, max_drawdown,
                 calmar_ratio, win_rate, profit_factor, avg_trade_return, num_trades
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
+                name,
                 strategy_id,
                 start_date,
                 end_date,
@@ -310,7 +327,7 @@ class UnifiedBacktester:
         return backtest_result_row[0]
 
     def _update_backtest_result(
-        self, strategy_name: str, results: dict[str, Any]
+        self, strategy_name: str, results: dict[str, Any], backtest_result_id: int
     ) -> None:
         """Update the backtest result with final metrics."""
         # Get strategy_id
@@ -321,8 +338,6 @@ class UnifiedBacktester:
         if not strategy_row:
             raise ValueError(f"Failed to find strategy: {strategy_name}")
 
-        strategy_id = strategy_row[0]
-
         # Update with actual metrics
         metrics = results["metrics"]
         self.results_conn.execute(
@@ -331,7 +346,7 @@ class UnifiedBacktester:
                 total_return = ?, annualized_return = ?, volatility = ?, sharpe_ratio = ?,
                 max_drawdown = ?, calmar_ratio = ?, win_rate = ?, profit_factor = ?,
                 avg_trade_return = ?, num_trades = ?
-            WHERE strategy_id = ? AND start_date = ? AND end_date = ?
+            WHERE id = ?
             """,
             [
                 float(metrics["total_return"]),
@@ -344,9 +359,7 @@ class UnifiedBacktester:
                 float(metrics["profit_factor"]),
                 float(metrics["avg_trade_return"]),
                 int(metrics["num_trades"]),
-                strategy_id,
-                results["start_date"],
-                results["end_date"],
+                backtest_result_id,
             ],
         )
 
@@ -481,6 +494,7 @@ class UnifiedBacktester:
         start_date: str,
         end_date: str,
         initial_capital: float = 100000.0,
+        name: str | None = None,
     ) -> dict[str, Any]:
         """
         Run backtest for a specific strategy.
@@ -515,7 +529,7 @@ class UnifiedBacktester:
 
         # Create backtest result entry first to enable trace logging
         backtest_result_id = self._create_backtest_result_entry(
-            strategy_name, start_date, end_date
+            strategy_name, start_date, end_date, name
         )
 
         # Run the backtest simulation with trace logging
@@ -529,7 +543,7 @@ class UnifiedBacktester:
         )
 
         # Update the backtest result with final metrics
-        self._update_backtest_result(strategy_name, results)
+        self._update_backtest_result(strategy_name, results, backtest_result_id)
 
         return results
 
@@ -669,12 +683,41 @@ class UnifiedBacktester:
                 )
 
             # Update portfolio value based on price changes
-            if len(current_weights) > 0:
-                asset_values = {
-                    asset: weight * portfolio_value
-                    for asset, weight in current_weights.items()
-                }
-                portfolio_value = sum(asset_values.values()) + cash
+            if i > 0 and len(current_weights) > 0:
+                # Calculate daily returns for each asset
+                prev_prices = price_data.loc[dates[i - 1]]
+                daily_returns = {}
+                for asset in current_weights:
+                    if asset in current_prices and asset in prev_prices:
+                        daily_returns[asset] = (
+                            current_prices[asset] - prev_prices[asset]
+                        ) / prev_prices[asset]
+                    else:
+                        daily_returns[asset] = 0.0
+
+                # Apply weighted returns to portfolio
+                portfolio_return = 0.0
+                for asset, weight in current_weights.items():
+                    portfolio_return += weight * daily_returns.get(asset, 0.0)
+
+                # Update portfolio value
+                portfolio_value = portfolio_value * (1.0 + portfolio_return)
+
+                # Update weights based on returns (drift)
+                new_weights = {}
+                for asset, weight in current_weights.items():
+                    new_weights[asset] = (
+                        weight
+                        * (1.0 + daily_returns.get(asset, 0.0))
+                        / (1.0 + portfolio_return)
+                    )
+
+                # Normalize weights
+                total_weight = sum(new_weights.values())
+                if total_weight > 0:
+                    current_weights = {
+                        k: v / total_weight for k, v in new_weights.items()
+                    }
 
             # Record portfolio value
             portfolio_values.append(
@@ -921,6 +964,7 @@ class UnifiedBacktester:
         try:
             return self.results_conn.execute("""
                 SELECT
+                    br.name,
                     s.name as strategy_name,
                     br.start_date,
                     br.end_date,
@@ -936,7 +980,7 @@ class UnifiedBacktester:
                     br.created_at
                 FROM backtest_results br
                 JOIN strategies s ON br.strategy_id = s.id
-                ORDER BY s.name, br.start_date DESC
+                ORDER BY br.created_at DESC
             """).fetchdf()
         except Exception as e:
             self.logger.error(f"Error getting results summary: {e}")

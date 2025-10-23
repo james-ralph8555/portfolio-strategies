@@ -94,6 +94,16 @@ export default function ControlPane() {
             </label>
           </div>
           <label style={{ display: 'flex', 'flex-direction': 'column', gap: '4px' }}>
+            <span>Backtest Name (optional)</span>
+            <input
+              type="text"
+              value={store.backtestName()}
+              onInput={(event) => store.setBacktestName(event.currentTarget.value)}
+              placeholder="Auto-generated if empty"
+              style={{ padding: '4px', 'background-color': '#0f1115', color: '#f9fafb', border: '1px solid #374151', 'border-radius': '3px' }}
+            />
+          </label>
+          <label style={{ display: 'flex', 'flex-direction': 'column', gap: '4px' }}>
             <span>Initial Capital</span>
             <input
               type="number"

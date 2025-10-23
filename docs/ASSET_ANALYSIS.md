@@ -13,7 +13,7 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 - **Description**: 3x leveraged NASDAQ-100 ETF that seeks daily investment results that correspond to three times the daily performance of the NASDAQ-100 Index
 - **Asset Class**: Leveraged Equity
 - **Usage**: Core equity engine in ALL strategies
-- **Strategies**: equity_convex_rate, equity_convex_rate_hedge, equity_crisis_alpha, equity_inflation_beta, equity_vol_barbell
+- **Strategies**: equity_convex_rate_hedge, equity_crisis_alpha, equity_inflation_beta, equity_vol_barbell
 - **Expense Ratio**: ~0.95% (estimated)
 - **Key Characteristics**: High volatility, tech-heavy exposure, daily rebalancing
 
@@ -24,7 +24,7 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 - **Description**: Gold-backed ETF that seeks to reflect the price of gold owned by the trust
 - **Asset Class**: Commodities (Precious Metals)
 - **Usage**: Diversification and crisis hedge
-- **Strategies**: equity_convex_rate, equity_convex_rate_hedge, equity_crisis_alpha, equity_inflation_beta
+- **Strategies**: equity_convex_rate_hedge, equity_crisis_alpha, equity_inflation_beta
 - **Expense Ratio**: 0.25%
 - **Key Characteristics**: Low correlation to equities, inflation hedge, safe-haven asset
 
@@ -71,7 +71,7 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 - **Description**: Interest rate hedge ETF that provides convex exposure to rising long-term interest rates using OTC interest rate options
 - **Asset Class**: Fixed Income Derivatives
 - **Usage**: Rising rates protection
-- **Strategies**: equity_convex_rate, equity_convex_rate_hedge
+- **Strategies**: equity_convex_rate_hedge
 - **Expense Ratio**: 0.50%
 - **Key Characteristics**: Convex exposure to rate increases, OTC derivatives, institutional-grade protection
 
@@ -82,7 +82,7 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 - **Description**: Ultra-short-term Treasury ETF investing in Treasury bills with 0-3 month remaining maturities
 - **Asset Class**: Cash Equivalents
 - **Usage**: Cash allocation and shock absorber
-- **Strategies**: equity_convex_rate, equity_convex_rate_hedge, equity_crisis_alpha, equity_inflation_beta, equity_vol_barbell
+- **Strategies**: equity_convex_rate_hedge, equity_crisis_alpha, equity_inflation_beta, equity_vol_barbell
 - **Expense Ratio**: 0.07%
 - **Key Characteristics**: Minimal interest rate risk, high liquidity, government backing
 
@@ -102,7 +102,7 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 - **Description**: 3x leveraged long-term Treasury ETF
 - **Asset Class**: Leveraged Fixed Income
 - **Usage**: Mentioned as alternative in rate hedging
-- **Strategies**: equity_convex_rate (conditional usage)
+- **Strategies**: equity_convex_rate_hedge (conditional usage)
 - **Expense Ratio**: 1.09%
 - **Key Characteristics**: 3x leverage to long-term Treasuries, high volatility
 
@@ -119,8 +119,8 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 
 ### Most Frequently Used Assets
 
-1. **TQQQ** - Used in ALL 5 strategies (core holding)
-2. **SGOV** - Used in ALL 5 strategies (cash allocation)
+1. **TQQQ** - Used in ALL 4 strategies (core holding)
+2. **SGOV** - Used in ALL 4 strategies (cash allocation)
 3. **IAU** - Used in 4 strategies (diversification)
 
 ### Strategy-Specific Assets
@@ -128,7 +128,7 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 - **equity_vol_barbell**: SVOL, TAIL (volatility-focused)
 - **equity_inflation_beta**: PDBC (commodity focus)
 - **equity_crisis_alpha**: DBMF (managed futures focus)
-- **equity_convex_rate**: PFIX (rate hedging focus)
+- **equity_convex_rate_hedge**: PFIX (rate hedging focus)
 
 ## Duplicate/Similar ETF Analysis
 
@@ -158,16 +158,15 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 
 ### By Strategy
 
-1. **equity_convex_rate**: 4 assets (TQQQ, PFIX, IAU, SGOV)
-2. **equity_convex_rate_hedge**: 4 assets (TQQQ, PFIX, IAU, SGOV)
-3. **equity_crisis_alpha**: 4 assets (TQQQ, DBMF, IAU, SGOV)
-4. **equity_inflation_beta**: 4 assets (TQQQ, PDBC, IAU, SGOV)
-5. **equity_vol_barbell**: 4 assets (TQQQ, SVOL, TAIL, SGOV)
+1. **equity_convex_rate_hedge**: 4 assets (TQQQ, PFIX, IAU, SGOV)
+2. **equity_crisis_alpha**: 4 assets (TQQQ, DBMF, IAU, SGOV)
+3. **equity_inflation_beta**: 4 assets (TQQQ, PDBC, IAU, SGOV)
+4. **equity_vol_barbell**: 4 assets (TQQQ, SVOL, TAIL, SGOV)
 
 ### By Asset Class
 
-- **Leveraged Equity**: TQQQ (5 strategies)
-- **Cash Equivalents**: SGOV (5 strategies)
+- **Leveraged Equity**: TQQQ (4 strategies)
+- **Cash Equivalents**: SGOV (4 strategies)
 - **Precious Metals**: IAU (4 strategies)
 - **Rate Hedging**: PFIX (2 strategies)
 - **Volatility Strategies**: SVOL, TAIL (1 strategy each)
@@ -188,7 +187,6 @@ This report analyzes all assets (ETFs) used across the portfolio strategies, inc
 
 ### Total Strategy Cost Estimates
 
-- **equity_convex_rate**: ~1.77% weighted average (reduced due to updated expense ratios)
 - **equity_convex_rate_hedge**: ~1.77% weighted average (reduced due to updated expense ratios)
 - **equity_crisis_alpha**: ~1.77% weighted average (reduced due to updated expense ratios)
 - **equity_inflation_beta**: ~1.71% weighted average (reduced due to updated expense ratios)

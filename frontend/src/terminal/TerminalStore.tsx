@@ -10,7 +10,7 @@ type TraceFilters = {
 
 type SeriesSource =
   | { kind: 'market'; symbol: string }
-  | { kind: 'backtest'; strategyName: string };
+  | { kind: 'backtest'; backtestName: string };
 
 export type ChartPaneSeries = {
   id: string;
@@ -42,6 +42,8 @@ type TerminalStore = {
   setStartDate: (value: string) => void;
   endDate: Accessor<string>;
   setEndDate: (value: string) => void;
+  backtestName: Accessor<string>;
+  setBacktestName: (value: string) => void;
   initialCapital: Accessor<number>;
   setInitialCapital: (value: number) => void;
   isRunning: Accessor<boolean>;
@@ -114,6 +116,7 @@ export const createTerminalStore = (): TerminalStore => {
   const [selectedStrategy, setSelectedStrategy] = createSignal<string>('');
   const [startDate, setStartDate] = createSignal<string>('2020-01-01');
   const [endDate, setEndDate] = createSignal<string>('2024-12-31');
+  const [backtestName, setBacktestName] = createSignal<string>('');
   const [initialCapital, setInitialCapital] = createSignal<number>(100000);
   const [isRunning, setIsRunning] = createSignal(false);
   const [backtestResult, setBacktestResult] = createSignal<any>(null);
@@ -163,7 +166,10 @@ export const createTerminalStore = (): TerminalStore => {
         const y = normalizeValues(yRaw, normalizeSeries());
         out.push({ id: entry.id, name: entry.label, x, y, color: entry.color, visible: entry.visible });
       } else {
-        const details = strategyCache()[entry.source.strategyName] || await getStrategyCached(entry.source.strategyName);
+        // Extract strategy name from backtest name if it follows the pattern "strategy-timestamp"
+        const backtestName = entry.source.backtestName;
+        const strategyName = backtestName.includes('-') ? backtestName.split('-').slice(0, -1).join('-') : backtestName;
+        const details = strategyCache()[strategyName] || await getStrategyCached(strategyName);
         const rows = details?.portfolio_values || [];
         const x = rows.map((row) => row.date);
         const yRaw = rows.map((row) => Number(row.portfolio_value));
@@ -198,12 +204,14 @@ export const createTerminalStore = (): TerminalStore => {
     ]);
   };
 
-  const addBacktestSeries = async (strategyName: string) => {
-    if (seriesList().some((item) => item.source.kind === 'backtest' && item.source.strategyName === strategyName)) return;
+  const addBacktestSeries = async (backtestName: string) => {
+    if (seriesList().some((item) => item.source.kind === 'backtest' && item.source.backtestName === backtestName)) return;
+    // Extract strategy name from backtest name if it follows the pattern "strategy-timestamp"
+    const strategyName = backtestName.includes('-') ? backtestName.split('-').slice(0, -1).join('-') : backtestName;
     await getStrategyCached(strategyName);
     setSeriesList((prev) => [
       ...prev,
-      { id: `backtest-${strategyName}`, label: `${strategyName} (Portfolio)`, color: nextColor(), visible: true, source: { kind: 'backtest', strategyName } },
+      { id: `backtest-${backtestName}`, label: `${backtestName} (Portfolio)`, color: nextColor(), visible: true, source: { kind: 'backtest', backtestName } },
     ]);
   };
 
@@ -231,6 +239,7 @@ export const createTerminalStore = (): TerminalStore => {
         start_date: startDate(),
         end_date: endDate(),
         initial_capital: initialCapital(),
+        name: backtestName() || undefined,
       };
       const response = await apiClient.runBacktest(request);
       setBacktestResult(response);
@@ -411,7 +420,10 @@ export const createTerminalStore = (): TerminalStore => {
         const cache = { ...strategyCache() };
         for (const entry of seriesList()) {
           if (entry.source.kind === 'backtest') {
-            delete cache[entry.source.strategyName];
+            // Extract strategy name from backtest name if it follows the pattern "strategy-timestamp"
+            const backtestName = entry.source.backtestName;
+            const strategyName = backtestName.includes('-') ? backtestName.split('-').slice(0, -1).join('-') : backtestName;
+            delete cache[strategyName];
           }
         }
         setStrategyCache(cache);
@@ -445,6 +457,8 @@ export const createTerminalStore = (): TerminalStore => {
     setStartDate,
     endDate,
     setEndDate,
+    backtestName,
+    setBacktestName,
     initialCapital,
     setInitialCapital,
     isRunning,

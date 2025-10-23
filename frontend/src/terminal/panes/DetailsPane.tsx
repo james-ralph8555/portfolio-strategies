@@ -30,7 +30,7 @@ export default function DetailsPane() {
   const overviewMetrics = createMemo(() => {
     const strategy = store.selectedResultStrategy();
     if (!strategy) return null;
-    const match = (store.results() || []).find((row) => row.strategy_name === strategy);
+    const match = (store.results() || []).find((row) => row.name === strategy);
     return match || null;
   });
 
@@ -73,7 +73,7 @@ export default function DetailsPane() {
   return (
     <div style={{ padding: '8px', color: '#d1d5db', 'font-size': '12px', height: '100%', display: 'flex', 'flex-direction': 'column', gap: '8px' }}>
       <header style={{ 'font-size': '13px', 'font-weight': 600, color: '#f9fafb' }}>
-        Strategy Details
+        Backtest Details
         <Show when={store.selectedResultStrategy()}>
           <span style={{ color: '#9ca3af', 'margin-left': '6px' }}>({store.selectedResultStrategy()})</span>
         </Show>

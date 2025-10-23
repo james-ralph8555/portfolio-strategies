@@ -10,6 +10,7 @@ export interface BacktestRequest {
   start_date: string;
   end_date: string;
   initial_capital: number;
+  name?: string;
 }
 
 export interface BacktestResponse {
